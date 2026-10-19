@@ -8,45 +8,83 @@
   :root {
     --bg: #f5f6f8; --panel: #fff; --text: #16191d; --muted: #667085; --line: #e3e6eb;
     --ok: #0f9d58; --ok-bg: #e7f6ee; --wait: #b26a00; --wait-bg: #fff4e0;
-    --bad: #d92d20; --bad-bg: #fdecea; --accent: #2b6cf0; --track: #e9ecf1;
+    --bad: #d92d20; --bad-bg: #fdecea; --accent: #2b6cf0; --accent-bg: #e8effe; --track: #e9ecf1;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0e1013; --panel: #171a1f; --text: #e7e9ed; --muted: #98a1b0; --line: #282d35;
       --ok: #3ddc84; --ok-bg: #0f2a1c; --wait: #f5b54a; --wait-bg: #2e2210;
-      --bad: #ff6b5e; --bad-bg: #331512; --accent: #5b8cff; --track: #252a32;
+      --bad: #ff6b5e; --bad-bg: #331512; --accent: #5b8cff; --accent-bg: #182544; --track: #252a32;
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, "Segoe UI", sans-serif; }
-  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; }
-  h1 { font-size: 22px; margin: 0 auto 0 0; letter-spacing: -.01em; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 10px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  nav { display: flex; gap: 4px; margin-right: auto; }
+  nav button { background: none; color: var(--muted); padding: 6px 12px; }
+  nav button[aria-current="page"] { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 28px 0 10px; }
+  h3.day { font-size: 15px; margin: 18px 0 6px; text-transform: capitalize; }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
           background: var(--panel); border: 1px solid var(--line); font-size: 13px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .ok .dot { background: var(--ok); } .wait .dot { background: var(--wait); } .bad .dot { background: var(--bad); }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 12px; }
   .muted { color: var(--muted); }
-  .banner { border-radius: 10px; padding: 14px 16px; font-weight: 600; margin-top: 12px; }
+  .banner { border-radius: 10px; padding: 12px 16px; font-weight: 600; margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
   .banner.ok { background: var(--ok-bg); color: var(--ok); }
   .banner.wait { background: var(--wait-bg); color: var(--wait); }
   .banner.bad { background: var(--bad-bg); color: var(--bad); }
-  .stats { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 4px; }
+  .banner.info { background: var(--accent-bg); color: var(--text); font-weight: 400; }
+  .stats { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 4px; }
   .cardtitle { font-size: 18px; font-weight: 650; }
-  form { display: grid; grid-template-columns: 1.3fr .9fr 1.3fr auto; gap: 10px; margin-top: 14px; align-items: end; }
   label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
   input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
-  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   button { font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; }
   button:disabled { opacity: .5; cursor: default; }
-  @media (max-width: 720px) { form { grid-template-columns: 1fr; } }
+  button.link { background: none; color: var(--accent); padding: 4px 6px; font-weight: 500; }
+
+  .session { border-top: 1px solid var(--line); padding: 10px 0; }
+  .shead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+  .scheck { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--text); cursor: pointer; }
+  .scheck input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .strip { display: flex; gap: 6px; margin: 8px 0 0 26px; overflow: hidden; }
+  .strip img { height: 54px; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 4px; background: var(--track); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 10px 0 0 26px; }
+  .tile { position: relative; border: 2px solid transparent; border-radius: 9px; background: var(--bg); padding: 5px; cursor: pointer; user-select: none; font-size: 12px; }
+  .tile.sel { border-color: var(--accent); background: var(--accent-bg); }
+  .tile:not([data-state="new"]) { cursor: default; }
+  .tile:not([data-state="new"]) .thumb { opacity: .45; }
+  .thumb { position: relative; aspect-ratio: 3 / 2; border-radius: 5px; background: var(--track); display: grid; place-items: center; overflow: hidden; color: var(--muted); font-weight: 600; }
+  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ck { position: absolute; top: 9px; right: 9px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; background: rgba(0,0,0,.35); color: #fff; font-size: 12px; display: grid; place-items: center; }
+  .tile.sel .ck { background: var(--accent); }
+  .tile.sel .ck::after { content: "✓"; }
+  .tile:not([data-state="new"]) .ck { display: none; }
+  .st { position: absolute; left: 9px; top: 9px; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 5px; }
+  .tile[data-state="dup"] .st { background: var(--wait-bg); color: var(--wait); }
+  .tile[data-state="dup"] .st::after { content: "al op LaCie"; }
+  .tile[data-state="lacie"] .st { background: var(--ok-bg); color: var(--ok); }
+  .tile[data-state="lacie"] .st::after { content: "LaCie ✓"; }
+  .tile[data-state="safe"] .st { background: var(--ok-bg); color: var(--ok); }
+  .tile[data-state="safe"] .st::after { content: "LaCie + NAS ✓"; }
+  .fname { display: block; margin-top: 4px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .assign { position: sticky; bottom: 0; z-index: 2; margin: 14px -18px -18px; padding: 14px 18px; background: var(--panel);
+            border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; box-shadow: 0 -6px 16px rgba(0,0,0,.08);
+            display: grid; grid-template-columns: 1fr 1.3fr .9fr 1.3fr auto; gap: 10px; align-items: end; }
+  .selinfo { font-weight: 650; align-self: center; }
+  @media (max-width: 760px) { .assign { grid-template-columns: 1fr; } .grid, .strip { margin-left: 0; } }
+
   .bar { height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; }
   .bar > div { height: 100%; background: var(--accent); transition: width .4s; }
   .row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
   .row:first-child { border-top: 0; }
-  .list { padding: 0; }
+  .list { padding: 0; overflow: hidden; }
   .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
   .badge.ok { background: var(--ok-bg); color: var(--ok); }
   .badge.wait { background: var(--wait-bg); color: var(--wait); }
@@ -56,22 +94,46 @@
   details li { word-break: break-all; }
   summary { cursor: pointer; color: var(--bad); }
   .empty { color: var(--muted); padding: 16px; }
-  #offline { position: fixed; inset: auto 16px 16px 16px; text-align: center; }
+  #offline { position: fixed; inset: auto 16px 16px 16px; }
+
+  .logtools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .logtools input { flex: 1 1 260px; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; border-top: 0; white-space: nowrap; }
+  td.a-ok { color: var(--ok); font-weight: 600; } td.a-bad { color: var(--bad); font-weight: 600; } td.a-wait { color: var(--wait); font-weight: 600; }
+  td.path { font-weight: 400; }
 </style>
 </head>
 <body>
 <main>
   <header>
     <h1>Offload</h1>
+    <nav>
+      <button type="button" data-tab="overview" aria-current="page">Overzicht</button>
+      <button type="button" data-tab="log">Logboek</button>
+    </nav>
     <div id="top"></div>
   </header>
+  <div id="logerror"></div>
 
-  <h2>SD-kaart</h2>
-  <div id="cards"></div>
-  <div id="job"></div>
+  <section id="overview">
+    <h2>SD-kaart</h2>
+    <div id="nocard" class="panel muted">Geen SD-kaart gevonden. Steek een kaart in; dit scherm opent dan vanzelf.</div>
+    <div id="cards"></div>
+    <div id="job"></div>
+    <h2>Imports</h2>
+    <div id="imports" class="panel list"></div>
+  </section>
 
-  <h2>Imports</h2>
-  <div id="imports" class="panel list"></div>
+  <section id="log" hidden>
+    <div class="logtools">
+      <input id="logfilter" type="search" placeholder="Zoeken in het logboek (bestand, klant, actie…)">
+      <span class="muted" id="logpath"></span>
+    </div>
+    <div class="panel list tablewrap"><table id="logtable"></table></div>
+  </section>
 
   <div id="offline" class="banner bad" hidden>Offload-app reageert niet. Start <b>start.cmd</b> opnieuw.</div>
 </main>
@@ -83,68 +145,221 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const gb = b => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : (b / 1e6).toFixed(0) + ' MB';
 const dur = s => s < 60 ? Math.round(s) + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1) + ' u';
+const hm = t => new Date(t * 1000).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
+const isoDate = t => { const d = new Date(t * 1000); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const last = {};
 const changed = (k, v) => { const j = JSON.stringify(v); if (last[k] === j) return false; last[k] = j; return true; };
 const chip = (cls, text) => `<span class="chip ${cls}"><span class="dot"></span>${text}</span>`;
+const post = async (url, body) => {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) alert((await r.json()).error);
+  return r.ok;
+};
 
+// ---------- kop ----------
 function renderTop(s) {
   $('#top').innerHTML =
     (s.lacie ? chip('ok', 'LaCie ' + esc(s.lacie)) : chip('bad', 'LaCie niet aangesloten')) + ' ' +
     (s.nas.reachable == null ? chip('', 'NAS controleren…')
       : s.nas.reachable ? chip('ok', 'NAS bereikbaar' + (s.nas.current ? ' · kopieert ' + esc(s.nas.current.split('/').pop()) : ''))
       : chip('wait', 'NAS niet bereikbaar'));
+  $('#logerror').innerHTML = s.log_error ? `<div class="banner wait">${esc(s.log_error)}</div>` : '';
+}
+
+// ---------- kaarten: sessies per dag, tegels, selectie ----------
+const built = {};  // drive -> kaartweergave; wordt maar één keer opgebouwd zodat selectie en invulvelden blijven staan
+
+function sessions(files, gapMin) {
+  const order = files.map((f, i) => i).sort((a, b) => files[a][2] - files[b][2]);
+  const out = [];
+  let cur, prev = -Infinity;
+  for (const i of order) {
+    if (!cur || files[i][2] - prev > gapMin * 60) out.push(cur = []);
+    cur.push(i);
+    prev = files[i][2];
+  }
+  return out;
+}
+
+const thumbUrl = (drive, rel) => `/api/thumb?drive=${encodeURIComponent(drive)}&rel=${encodeURIComponent(rel)}`;
+const img = (drive, rel) => `<img loading="lazy" alt="" src="${thumbUrl(drive, rel)}" onerror="this.remove()">`;
+
+function buildCard(c, s, key) {
+  const b = { key, drive: c.drive, files: c.files, sel: new Set(), last: null, states: [] };
+  b.sess = sessions(c.files, s.gap_minutes);
+  b.order = b.sess.flat();
+  b.pos = {};
+  b.order.forEach((i, p) => b.pos[i] = p);
+
+  let html = `<div class="cardtitle">${esc(c.label)} <span class="muted">(${esc(c.drive)})</span></div>
+    <div class="stats muted" data-stats></div><div data-banner></div>`;
+  let day = '';
+  b.sess.forEach((ids, si) => {
+    const f0 = c.files[ids[0]], f1 = c.files[ids.at(-1)];
+    const d = new Date(f0[2] * 1000).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    if (d !== day) { html += `<h3 class="day">${d}</h3>`; day = d; }
+    const peek = [...new Set([0, 1, 2, 3, 4, 5].map(j => ids[Math.floor(j * ids.length / 6)]))];
+    html += `<div class="session">
+      <div class="shead">
+        <label class="scheck"><input type="checkbox" data-sess="${si}"> ${hm(f0[2])} – ${hm(f1[2])}</label>
+        <span class="muted" data-sinfo="${si}"></span>
+        <button type="button" class="link" data-toggle="${si}">Bestanden tonen</button>
+      </div>
+      <div class="strip">${peek.map(i => img(c.drive, c.files[i][0])).join('')}</div>
+      <div class="grid" data-grid="${si}" hidden>${ids.map(i => {
+        const [rel, size, t] = c.files[i], name = rel.split('/').pop();
+        return `<div class="tile" data-i="${i}"><div class="thumb">${esc(name.split('.').pop())}${img(c.drive, rel)}</div>
+          <span class="st"></span><span class="ck"></span>
+          <span class="fname" title="${esc(rel)}">${esc(name)}</span><span class="muted">${hm(t)} · ${gb(size)}</span></div>`;
+      }).join('')}</div>
+    </div>`;
+  });
+  html += `<form class="assign" hidden>
+      <div class="selinfo" data-selinfo></div>
+      <label>Klant<input name="client" list="clients" required placeholder="bv. 09_Altum_Capital"></label>
+      <label>Datum shoot<input name="date" type="date" required></label>
+      <label>Shootnaam<input name="shoot" required placeholder="bv. Bedrijfsfilm"></label>
+      <button>Kopieer selectie</button>
+    </form>`;
+
+  b.el = document.createElement('div');
+  b.el.className = 'panel';
+  b.el.innerHTML = html;
+  b.form = b.el.querySelector('form');
+  b.form.date.addEventListener('input', () => b.form.date.dataset.touched = '1');
+  b.form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = b.form;
+    const ok = await post('/api/import', { drive: b.drive, files: [...b.sel].map(i => b.files[i][0]),
+      client: f.client.value, date: f.date.value, shoot: f.shoot.value });
+    if (ok) { b.sel.clear(); b.last = null; f.shoot.value = ''; delete f.date.dataset.touched; refreshSel(b); tick(); }
+  });
+  b.el.addEventListener('click', e => onCardClick(b, e));
+  return b;
+}
+
+const selectable = (b, i) => b.states[i] === 'new' && !b.busy;
+
+function onCardClick(b, e) {
+  const toggle = e.target.closest('[data-toggle]');
+  if (toggle) {
+    const g = b.el.querySelector(`[data-grid="${toggle.dataset.toggle}"]`);
+    g.hidden = !g.hidden;
+    toggle.textContent = g.hidden ? 'Bestanden tonen' : 'Bestanden verbergen';
+    return;
+  }
+  if (e.target.closest('[data-adopt]')) {
+    post('/api/adopt', { drive: b.drive }).then(tick);
+    return;
+  }
+  const sess = e.target.closest('input[data-sess]');
+  if (sess) {
+    for (const i of b.sess[+sess.dataset.sess]) if (selectable(b, i)) sess.checked ? b.sel.add(i) : b.sel.delete(i);
+    b.last = null;
+    return refreshSel(b);
+  }
+  const tile = e.target.closest('.tile');
+  if (!tile) return;
+  const i = +tile.dataset.i;
+  if (!selectable(b, i)) return;
+  const on = !b.sel.has(i);
+  if (e.shiftKey && b.last != null) {  // shift+klik: hele reeks sinds de vorige klik
+    const [from, to] = [b.pos[b.last], b.pos[i]].sort((x, y) => x - y);
+    for (let p = from; p <= to; p++) if (selectable(b, b.order[p])) on ? b.sel.add(b.order[p]) : b.sel.delete(b.order[p]);
+  } else on ? b.sel.add(i) : b.sel.delete(i);
+  b.last = i;
+  refreshSel(b);
+}
+
+function refreshSel(b) {
+  b.el.querySelectorAll('.tile').forEach(t => t.classList.toggle('sel', b.sel.has(+t.dataset.i)));
+  b.sess.forEach((ids, si) => {
+    const box = b.el.querySelector(`[data-sess="${si}"]`);
+    const can = ids.filter(i => selectable(b, i)), n = can.filter(i => b.sel.has(i)).length;
+    box.disabled = !can.length;
+    box.checked = can.length > 0 && n === can.length;
+    box.indeterminate = n > 0 && n < can.length;
+  });
+  const sel = [...b.sel];
+  b.form.hidden = !sel.length;
+  if (!sel.length) return;
+  b.el.querySelector('[data-selinfo]').textContent =
+    `${sel.length} geselecteerd · ${gb(sel.reduce((a, i) => a + b.files[i][1], 0))}`;
+  if (!b.form.date.dataset.touched) b.form.date.value = isoDate(Math.min(...sel.map(i => b.files[i][2])));
+}
+
+function updateCard(b, c, s) {
+  b.states = c.files.map(f => f[3]);
+  b.busy = s.job.running;
+  if (!changed('card' + b.drive, [b.states, c.files.map(f => f[4]), b.busy])) return;
+  for (const i of [...b.sel]) if (!selectable(b, i)) b.sel.delete(i);
+  b.el.querySelectorAll('.tile').forEach(t => {
+    const i = +t.dataset.i;
+    t.dataset.state = b.states[i];
+    t.title = c.files[i][4] ? 'Staat in ' + c.files[i][4] : '';
+  });
+  b.sess.forEach((ids, si) => {
+    const n = st => ids.filter(i => b.states[i] === st).length;
+    const parts = [`${ids.length} bestanden · ${gb(ids.reduce((a, i) => a + c.files[i][1], 0))}`];
+    if (n('new')) parts.push(`<b style="color:var(--text)">${n('new')} nieuw</b>`);
+    if (n('dup')) parts.push(`<span style="color:var(--wait)">${n('dup')} al op LaCie, niet gecontroleerd</span>`);
+    if (n('lacie') + n('safe')) parts.push(`${n('lacie') + n('safe')} gecontroleerd op LaCie`);
+    b.el.querySelector(`[data-sinfo="${si}"]`).innerHTML = parts.join(' · ');
+  });
+
+  const k = c.counts, total = c.files.length;
+  const onLacie = (k.lacie || 0) + (k.safe || 0);
+  b.el.querySelector('[data-stats]').innerHTML = `<span>${total} bestanden · ${gb(c.files.reduce((a, f) => a + f[1], 0))}</span>
+    <span>${b.sess.length} sessies</span><span>${onLacie}/${total} gecontroleerd op LaCie</span><span>${k.safe || 0}/${total} op NAS</span>`;
+
+  let banner = '';
+  if (k.scan) banner = `<div class="banner info">De LaCie wordt doorzocht op dubbels…</div>`;
+  else if (c.safe) banner = `<div class="banner ok">✓ Alles staat geverifieerd op de LaCie én de NAS. Deze kaart mag geformatteerd worden.</div>`;
+  else {
+    if (k.dup) {
+      const where = [...new Set(c.files.filter(f => f[3] === 'dup').map(f => f[4]))];
+      banner += `<div class="banner wait"><span>${k.dup} bestanden staan al op de LaCie (${esc(where.slice(0, 3).join(', '))}${where.length > 3 ? ', …' : ''}) en worden niet opnieuw gekopieerd. Controleer ze eerst op inhoud.</span>
+        <button type="button" data-adopt ${b.busy ? 'disabled' : ''}>Controleer ${k.dup} bestaande bestanden</button></div>`;
+    }
+    if (k.new) banner += `<div class="banner info">${k.new} nieuwe bestanden. Vink per sessie aan wat bij één klant hoort, of klik op bestanden (shift+klik voor een reeks).</div>`;
+    else if (!k.dup) banner += `<div class="banner wait">Alles staat op de LaCie. Wacht op de NAS (${k.safe || 0}/${total}). Nog niet formatteren.</div>`;
+  }
+  b.el.querySelector('[data-banner]').innerHTML = banner;
+  refreshSel(b);
 }
 
 function renderCards(s) {
-  // ingevulde velden bewaren over re-renders heen
-  const keep = {};
-  document.querySelectorAll('form input').forEach(i => keep[i.id] = i.value);
-
-  $('#clients').innerHTML = s.clients.map(c => `<option value="${esc(c)}">`).join('');
-  if (!s.cards.length) {
-    $('#cards').innerHTML = '<div class="panel muted">Geen SD-kaart gevonden. Steek een kaart in; dit scherm opent dan vanzelf.</div>';
-    return;
+  if (changed('clients', s.clients)) $('#clients').innerHTML = s.clients.map(c => `<option value="${esc(c)}">`).join('');
+  $('#nocard').hidden = s.cards.length > 0;
+  const seen = new Set();
+  for (const c of s.cards) {
+    const key = c.serial + ':' + c.files.length;
+    seen.add(c.drive);
+    if (built[c.drive]?.key !== key) {
+      built[c.drive]?.el.remove();
+      built[c.drive] = buildCard(c, s, key);
+      delete last['card' + c.drive];
+      $('#cards').append(built[c.drive].el);
+    }
+    updateCard(built[c.drive], c, s);
   }
-  $('#cards').innerHTML = s.cards.map((c, i) => {
-    let state;
-    if (c.safe) state = '<div class="banner ok">✓ Alles staat geverifieerd op de LaCie én de NAS. Deze kaart mag geformatteerd worden.</div>';
-    else if (!c.count) state = '<div class="banner wait">Geen foto- of videobestanden op deze kaart.</div>';
-    else if (!c.new_count) state = '<div class="banner wait">Alles staat op de LaCie. Wacht op de NAS (' + c.on_nas + '/' + c.count + '). Nog niet formatteren.</div>';
-    else state = s.job.running ? '' : `
-      <form onsubmit="start(event, ${i})">
-        <label>Klant<input id="client${i}" list="clients" required placeholder="bv. 09_Altum_Capital"></label>
-        <label>Datum shoot<input id="date${i}" type="date" required value="${esc(c.date)}"></label>
-        <label>Shootnaam<input id="shoot${i}" required placeholder="bv. Bedrijfsfilm"></label>
-        <button ${s.lacie ? '' : 'disabled title="LaCie niet aangesloten"'}>Kopieer ${c.new_count} bestanden</button>
-      </form>`;
-    return `<div class="panel">
-      <div class="cardtitle">${esc(c.label)} <span class="muted">(${esc(c.drive)})</span></div>
-      <div class="stats muted">
-        <span>${c.count} bestanden · ${gb(c.bytes)}</span>
-        ${c.new_count ? `<span><b style="color:var(--text)">${c.new_count} nieuw</b> · ${gb(c.new_bytes)}</span>` : ''}
-        <span>${c.on_lacie}/${c.count} op LaCie</span>
-        <span>${c.on_nas}/${c.count} op NAS</span>
-      </div>
-      ${state}
-    </div>`;
-  }).join('');
-  for (const [id, v] of Object.entries(keep)) { const el = document.getElementById(id); if (el) el.value = v; }
-  window.cards = s.cards;
+  for (const d of Object.keys(built)) if (!seen.has(d)) { built[d].el.remove(); delete built[d]; }
 }
 
+// ---------- taak, imports ----------
 function renderJob(j) {
   if (!j.running && !j.error && !j.finished) return $('#job').innerHTML = '';
+  const what = j.kind === 'adopt' ? 'Bestaande bestanden controleren (hash van kaart en LaCie)' : `Kopiëren en verifiëren naar ${esc(j.dest)}`;
   if (!j.running) {
     $('#job').innerHTML = j.error
-      ? `<div class="banner bad">Import gestopt: ${esc(j.error)}</div>`
-      : `<div class="banner ok">Import klaar: ${j.done_files} bestanden naar ${esc(j.dest)}. Details hieronder.</div>`;
+      ? `<div class="banner bad">Taak gestopt: ${esc(j.error)}</div>`
+      : `<div class="banner ok">Klaar: ${j.done_files} bestanden ${j.kind === 'adopt' ? 'gecontroleerd' : 'naar ' + esc(j.dest)}. Details in het logboek.</div>`;
     return;
   }
   const pct = j.work_total ? j.work_done / j.work_total : 0;
   const el = Date.now() / 1000 - j.started;
   const eta = pct > 0.01 ? dur(el / pct - el) : '…';
-  $('#job').innerHTML = `<div class="panel">
-    <b>Kopiëren en verifiëren naar ${esc(j.dest)}</b>
+  $('#job').innerHTML = `<div class="panel"><b>${what}</b>
     <div class="bar"><div style="width:${(pct * 100).toFixed(1)}%"></div></div>
     <div class="stats muted"><span>${j.done_files}/${j.total_files} bestanden</span><span>${(pct * 100).toFixed(0)}%</span>
     <span>nog ± ${eta}</span><span>${esc(j.current)}</span></div></div>`;
@@ -161,7 +376,7 @@ function renderImports(s) {
   if (!s.imports.length) return $('#imports').innerHTML = '<div class="empty">Nog geen imports via Offload.</div>';
   $('#imports').innerHTML = s.imports.map(m => `<div class="row">
     <div><div class="path">${esc(m.path)}</div>
-      <div class="muted">${m.count} bestanden · ${gb(m.bytes)} · ${esc(m.created.replace('T', ' '))} · kaart ${m.cards.map(esc).join(', ')}</div></div>
+      <div class="muted">${m.count} bestanden · ${gb(m.bytes)} · ${esc(m.created.replace('T', ' '))}${m.cards.length ? ' · kaart ' + m.cards.map(esc).join(', ') : ''}${m.adopted ? ` · ${m.adopted} bestonden al` : ''}</div></div>
     ${badge('LaCie', m.lacie_ok, m.count, m.lacie_errors, 'bezig')}
     ${badge('NAS', m.nas_ok, m.count, m.nas_errors, s.nas.reachable ? 'bezig' : 'wacht')}
     ${m.problems.length ? `<details><summary>${m.problems.length} probleem(en) bekijken</summary><ul>${
@@ -169,26 +384,51 @@ function renderImports(s) {
   </div>`).join('');
 }
 
-async function start(e, i) {
-  e.preventDefault();
-  const c = window.cards[i];
-  const body = { drive: c.drive, client: $('#client' + i).value, date: $('#date' + i).value, shoot: $('#shoot' + i).value };
-  const r = await fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!r.ok) alert((await r.json()).error);
-  tick(true);
+// ---------- logboek ----------
+let logData = { cols: [], rows: [] };
+const actionClass = a => /fout|conflict/i.test(a) ? 'a-bad' : /andere inhoud/i.test(a) ? 'a-wait' : /gekopieerd|gecontroleerd/i.test(a) ? 'a-ok' : '';
+
+function renderLog() {
+  const q = $('#logfilter').value.toLowerCase();
+  const rows = logData.rows.filter(r => !q || r.join(' ').toLowerCase().includes(q)).slice(0, 500);
+  $('#logpath').textContent = logData.path ? 'Bestand: ' + logData.path : 'Sluit de LaCie aan om het logboek te zien.';
+  $('#logtable').innerHTML = `<tr><th>Tijd</th><th>Actie</th><th>Kaart</th><th>Bestand</th><th>Doel</th><th>Grootte</th><th>Melding</th></tr>` +
+    (rows.length ? rows.map(r => `<tr><td>${esc(r[0].replace('T', ' '))}</td><td class="${actionClass(r[1])}">${esc(r[1])}</td>
+      <td>${esc(r[2])}</td><td class="path">${esc(r[3])}</td><td class="path">${esc(r[4])}</td>
+      <td>${r[5] ? gb(+r[5]) : ''}</td><td>${esc(r[7])}</td></tr>`).join('')
+      : `<tr><td colspan="7" class="muted">Nog niets in het logboek.</td></tr>`);
 }
 
+async function loadLog() {
+  if ($('#log').hidden) return;
+  try { logData = await (await fetch('/api/log')).json(); if (changed('log', logData.rows.length + logData.path)) renderLog(); } catch {}
+  setTimeout(loadLog, 3000);
+}
+$('#logfilter').addEventListener('input', renderLog);
+
+document.querySelectorAll('nav [data-tab]').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('nav [data-tab]').forEach(x => x.removeAttribute('aria-current'));
+  btn.setAttribute('aria-current', 'page');
+  $('#overview').hidden = btn.dataset.tab !== 'overview';
+  $('#log').hidden = btn.dataset.tab !== 'log';
+  delete last.log;
+  loadLog();
+}));
+
+// ---------- lus ----------
 let timer;
-async function tick(once) {
+async function tick() {
   clearTimeout(timer);
   try {
-    const s = await (await fetch('/api/status')).json();
+    var s = await (await fetch('/api/status')).json();
     $('#offline').hidden = true;
-    if (changed('top', [s.lacie, s.nas])) renderTop(s);
-    if (changed('cards', [s.cards, s.clients, s.job.running, !!s.lacie])) renderCards(s);
+  } catch { $('#offline').hidden = false; }
+  if (s) try {
+    if (changed('top', [s.lacie, s.nas, s.log_error])) renderTop(s);
+    renderCards(s);
     renderJob(s.job);
     if (changed('imports', [s.imports, s.nas.reachable, !!s.lacie])) renderImports(s);
-  } catch { $('#offline').hidden = false; }
+  } catch (e) { console.error(e); }
   timer = setTimeout(tick, 1000);
 }
 tick();

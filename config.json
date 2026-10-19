@@ -3,6 +3,8 @@
   "lacie_label": "LaCie",
   "lacie_subdir": "00_Bronbestanden",
   "nas_root": "\\\\NAS-A-PRIMARY\\Marketing\\00_Bronbestanden",
+  "logbook": "Overzetting controle\\Offload-logboek.csv",
+  "session_gap_minutes": 30,
   "extensions": [
     ".mp4", ".mov", ".mxf", ".mts", ".m2ts", ".avi", ".braw", ".r3d", ".crm", ".insv",
     ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".arw", ".cr2", ".cr3", ".nef", ".raf", ".dng", ".heic", ".hif",
