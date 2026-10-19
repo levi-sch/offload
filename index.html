@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offload</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --text: #16191d; --muted: #667085; --line: #e3e6eb;
+    --ok: #0f9d58; --ok-bg: #e7f6ee; --wait: #b26a00; --wait-bg: #fff4e0;
+    --bad: #d92d20; --bad-bg: #fdecea; --accent: #2b6cf0; --track: #e9ecf1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1013; --panel: #171a1f; --text: #e7e9ed; --muted: #98a1b0; --line: #282d35;
+      --ok: #3ddc84; --ok-bg: #0f2a1c; --wait: #f5b54a; --wait-bg: #2e2210;
+      --bad: #ff6b5e; --bad-bg: #331512; --accent: #5b8cff; --track: #252a32;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0 auto 0 0; letter-spacing: -.01em; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 10px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+          background: var(--panel); border: 1px solid var(--line); font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .ok .dot { background: var(--ok); } .wait .dot { background: var(--wait); } .bad .dot { background: var(--bad); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+  .muted { color: var(--muted); }
+  .banner { border-radius: 10px; padding: 14px 16px; font-weight: 600; margin-top: 12px; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.wait { background: var(--wait-bg); color: var(--wait); }
+  .banner.bad { background: var(--bad-bg); color: var(--bad); }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 4px; }
+  .cardtitle { font-size: 18px; font-weight: 650; }
+  form { display: grid; grid-template-columns: 1.3fr .9fr 1.3fr auto; gap: 10px; margin-top: 14px; align-items: end; }
+  label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button { font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  @media (max-width: 720px) { form { grid-template-columns: 1fr; } }
+  .bar { height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; }
+  .bar > div { height: 100%; background: var(--accent); transition: width .4s; }
+  .row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; }
+  .list { padding: 0; }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.wait { background: var(--wait-bg); color: var(--wait); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .path { font-weight: 600; word-break: break-all; }
+  details { grid-column: 1 / -1; font-size: 13px; }
+  details li { word-break: break-all; }
+  summary { cursor: pointer; color: var(--bad); }
+  .empty { color: var(--muted); padding: 16px; }
+  #offline { position: fixed; inset: auto 16px 16px 16px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Offload</h1>
+    <div id="top"></div>
+  </header>
+
+  <h2>SD-kaart</h2>
+  <div id="cards"></div>
+  <div id="job"></div>
+
+  <h2>Imports</h2>
+  <div id="imports" class="panel list"></div>
+
+  <div id="offline" class="banner bad" hidden>Offload-app reageert niet. Start <b>start.cmd</b> opnieuw.</div>
+</main>
+
+<datalist id="clients"></datalist>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const gb = b => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : (b / 1e6).toFixed(0) + ' MB';
+const dur = s => s < 60 ? Math.round(s) + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1) + ' u';
+const last = {};
+const changed = (k, v) => { const j = JSON.stringify(v); if (last[k] === j) return false; last[k] = j; return true; };
+const chip = (cls, text) => `<span class="chip ${cls}"><span class="dot"></span>${text}</span>`;
+
+function renderTop(s) {
+  $('#top').innerHTML =
+    (s.lacie ? chip('ok', 'LaCie ' + esc(s.lacie)) : chip('bad', 'LaCie niet aangesloten')) + ' ' +
+    (s.nas.reachable == null ? chip('', 'NAS controleren…')
+      : s.nas.reachable ? chip('ok', 'NAS bereikbaar' + (s.nas.current ? ' · kopieert ' + esc(s.nas.current.split('/').pop()) : ''))
+      : chip('wait', 'NAS niet bereikbaar'));
+}
+
+function renderCards(s) {
+  // ingevulde velden bewaren over re-renders heen
+  const keep = {};
+  document.querySelectorAll('form input').forEach(i => keep[i.id] = i.value);
+
+  $('#clients').innerHTML = s.clients.map(c => `<option value="${esc(c)}">`).join('');
+  if (!s.cards.length) {
+    $('#cards').innerHTML = '<div class="panel muted">Geen SD-kaart gevonden. Steek een kaart in; dit scherm opent dan vanzelf.</div>';
+    return;
+  }
+  $('#cards').innerHTML = s.cards.map((c, i) => {
+    let state;
+    if (c.safe) state = '<div class="banner ok">✓ Alles staat geverifieerd op de LaCie én de NAS. Deze kaart mag geformatteerd worden.</div>';
+    else if (!c.count) state = '<div class="banner wait">Geen foto- of videobestanden op deze kaart.</div>';
+    else if (!c.new_count) state = '<div class="banner wait">Alles staat op de LaCie. Wacht op de NAS (' + c.on_nas + '/' + c.count + '). Nog niet formatteren.</div>';
+    else state = s.job.running ? '' : `
+      <form onsubmit="start(event, ${i})">
+        <label>Klant<input id="client${i}" list="clients" required placeholder="bv. 09_Altum_Capital"></label>
+        <label>Datum shoot<input id="date${i}" type="date" required value="${esc(c.date)}"></label>
+        <label>Shootnaam<input id="shoot${i}" required placeholder="bv. Bedrijfsfilm"></label>
+        <button ${s.lacie ? '' : 'disabled title="LaCie niet aangesloten"'}>Kopieer ${c.new_count} bestanden</button>
+      </form>`;
+    return `<div class="panel">
+      <div class="cardtitle">${esc(c.label)} <span class="muted">(${esc(c.drive)})</span></div>
+      <div class="stats muted">
+        <span>${c.count} bestanden · ${gb(c.bytes)}</span>
+        ${c.new_count ? `<span><b style="color:var(--text)">${c.new_count} nieuw</b> · ${gb(c.new_bytes)}</span>` : ''}
+        <span>${c.on_lacie}/${c.count} op LaCie</span>
+        <span>${c.on_nas}/${c.count} op NAS</span>
+      </div>
+      ${state}
+    </div>`;
+  }).join('');
+  for (const [id, v] of Object.entries(keep)) { const el = document.getElementById(id); if (el) el.value = v; }
+  window.cards = s.cards;
+}
+
+function renderJob(j) {
+  if (!j.running && !j.error && !j.finished) return $('#job').innerHTML = '';
+  if (!j.running) {
+    $('#job').innerHTML = j.error
+      ? `<div class="banner bad">Import gestopt: ${esc(j.error)}</div>`
+      : `<div class="banner ok">Import klaar: ${j.done_files} bestanden naar ${esc(j.dest)}. Details hieronder.</div>`;
+    return;
+  }
+  const pct = j.work_total ? j.work_done / j.work_total : 0;
+  const el = Date.now() / 1000 - j.started;
+  const eta = pct > 0.01 ? dur(el / pct - el) : '…';
+  $('#job').innerHTML = `<div class="panel">
+    <b>Kopiëren en verifiëren naar ${esc(j.dest)}</b>
+    <div class="bar"><div style="width:${(pct * 100).toFixed(1)}%"></div></div>
+    <div class="stats muted"><span>${j.done_files}/${j.total_files} bestanden</span><span>${(pct * 100).toFixed(0)}%</span>
+    <span>nog ± ${eta}</span><span>${esc(j.current)}</span></div></div>`;
+}
+
+function badge(name, ok, total, errors, waiting) {
+  const cls = ok === total ? 'ok' : errors ? 'bad' : 'wait';
+  const txt = ok === total ? '✓' : errors ? errors + ' fout' : waiting;
+  return `<span class="badge ${cls}">${name} ${txt} ${ok}/${total}</span>`;
+}
+
+function renderImports(s) {
+  if (!s.lacie) return $('#imports').innerHTML = '<div class="empty">Sluit de LaCie aan om de imports te zien.</div>';
+  if (!s.imports.length) return $('#imports').innerHTML = '<div class="empty">Nog geen imports via Offload.</div>';
+  $('#imports').innerHTML = s.imports.map(m => `<div class="row">
+    <div><div class="path">${esc(m.path)}</div>
+      <div class="muted">${m.count} bestanden · ${gb(m.bytes)} · ${esc(m.created.replace('T', ' '))} · kaart ${m.cards.map(esc).join(', ')}</div></div>
+    ${badge('LaCie', m.lacie_ok, m.count, m.lacie_errors, 'bezig')}
+    ${badge('NAS', m.nas_ok, m.count, m.nas_errors, s.nas.reachable ? 'bezig' : 'wacht')}
+    ${m.problems.length ? `<details><summary>${m.problems.length} probleem(en) bekijken</summary><ul>${
+      m.problems.map(p => `<li><b>${esc(p.file)}</b>: ${esc(p.error)}</li>`).join('')}</ul></details>` : ''}
+  </div>`).join('');
+}
+
+async function start(e, i) {
+  e.preventDefault();
+  const c = window.cards[i];
+  const body = { drive: c.drive, client: $('#client' + i).value, date: $('#date' + i).value, shoot: $('#shoot' + i).value };
+  const r = await fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) alert((await r.json()).error);
+  tick(true);
+}
+
+let timer;
+async function tick(once) {
+  clearTimeout(timer);
+  try {
+    const s = await (await fetch('/api/status')).json();
+    $('#offline').hidden = true;
+    if (changed('top', [s.lacie, s.nas])) renderTop(s);
+    if (changed('cards', [s.cards, s.clients, s.job.running, !!s.lacie])) renderCards(s);
+    renderJob(s.job);
+    if (changed('imports', [s.imports, s.nas.reachable, !!s.lacie])) renderImports(s);
+  } catch { $('#offline').hidden = false; }
+  timer = setTimeout(tick, 1000);
+}
+tick();
+</script>
+</body>
+</html>
