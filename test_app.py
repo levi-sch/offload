@@ -68,14 +68,14 @@ def main():
 
         # selectie: alleen de clip naar klant A, foto 2 later naar klant B
         clip = [f for f in files if f[0] == 'C0001.MP4']
-        app.import_card(card_root, 'KAART1', clip, lacie, '01_Klant', '26-10-19_Shoot', job, lidx)
+        app.import_card(card_root, 'KAART1', clip, lacie, Path('01_Klant/26-10-19_Shoot'), job, lidx)
         shoot = lacie / '01_Klant/26-10-19_Shoot'
         assert (shoot / 'C0001.MP4').read_bytes() == (card_root / 'C0001.MP4').read_bytes()
         assert (old / 'C0001.MP4').read_bytes() == b'VIDEO' * 100000  # oude map onaangeroerd
         assert states(card, lacie, lidx)['DCIM/100MSDCF/DSC00002.JPG'] == 'new'
         foto2 = [f for f in files if f[0] == 'DCIM/100MSDCF/DSC00002.JPG']
         client = app.clean_path(r'02_Andere\01_Locatie', 2)
-        app.import_card(card_root, 'KAART1', foto2, lacie, client, '26-10-19_Event', job, lidx, Path('Camera'))
+        app.import_card(card_root, 'KAART1', foto2, lacie, client / '26-10-19_Event/Camera', job, lidx)
         event = lacie / '02_Andere/01_Locatie/26-10-19_Event'
         assert (event / 'Camera/DSC00002.JPG').exists()  # plat: geen DCIM/100MSDCF
         assert app.load_json(event / app.MANIFEST)['files'][0]['rel'] == 'Camera/DSC00002.JPG'
@@ -85,7 +85,14 @@ def main():
         # zelfde bestandsnaam uit twee cameramappen in één platte map: tweede wordt naam_2, niets overschreven
         (card_root / 'DCIM/101MSDCF').mkdir()
         (card_root / 'DCIM/101MSDCF/DSC00002.JPG').write_bytes(b'na de teller-reset')
-        app.import_card(card_root, 'KAART1', [('DCIM/101MSDCF/DSC00002.JPG', 18, 0)], lacie, client, '26-10-19_Event', job, lidx, Path('Camera'))
+        app.import_card(card_root, 'KAART1', [('DCIM/101MSDCF/DSC00002.JPG', 18, 0)], lacie, client / '26-10-19_Event/Camera', job, lidx)
+
+        # ontbrekend bestand toevoegen aan een bestaande (met de hand gemaakte) map: komt in hetzelfde manifest
+        (card_root / 'DCIM/101MSDCF/DSC00003.JPG').write_bytes(b'vergeten foto')
+        app.import_card(card_root, 'KAART1', [('DCIM/101MSDCF/DSC00003.JPG', 13, 0)], lacie, Path('01_Klant/oude_map'), job, lidx)
+        assert (old / 'DSC00003.JPG').read_bytes() == b'vergeten foto'
+        oude = app.load_json(old / app.MANIFEST)
+        assert {f['rel'] for f in oude['files']} == {'DSC00001.JPG', 'DSC00003.JPG'}, oude
         assert (event / 'Camera/DSC00002_2.JPG').read_bytes() == b'na de teller-reset'
         assert (event / 'Camera/DSC00002.JPG').read_bytes() == b'andere klant' * 100
 

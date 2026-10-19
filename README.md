@@ -14,10 +14,11 @@ Handmatig starten of het dashboard openen kan altijd met `start.cmd`, of via htt
 1. Steek de SD-kaart in. Het dashboard opent vanzelf.
 2. Offload doorzoekt de hele LaCie op bestanden die er al staan, ook in mappen die je met de hand hebt gekopieerd.
 3. **Bestanden die al op de LaCie staan** worden niet opnieuw gekopieerd. Klik op **Controleer bestaande bestanden**: Offload vergelijkt dan de hash van de kaart met die op de LaCie. Is de inhoud gelijk, dan wordt het bestand opgenomen en gaat het ook naar de NAS. Is de inhoud anders, dan wordt het een gewoon nieuw bestand.
-4. **Nieuwe bestanden** staan per opnamedag in sessies. Een nieuwe sessie begint na meer dan 30 minuten zonder opnames. Vink een sessie aan, of klik op losse bestanden; met shift+klik selecteer je een hele reeks. Kies een klant, een datum en een shootnaam en klik op **Kopieer selectie**. Herhaal dit voor de volgende klant.
-5. De bestanden komen plat in `E:\00_Bronbestanden\<klant>\JJ-MM-DD_<shoot>\`, bv. `01_VMRE\26-09-11_teambuilding\`, zonder de camera-mappen zoals `DCIM\100MSDCF`. Een klant mag een tussenniveau hebben (`02_Cleanpoint\01_Eke`), en met **Submap** kun je bv. `Drone` of `Camera` kiezen. Het dashboard toont vooraf de doelmap.
-6. Zodra `\\NAS-A-PRIMARY\Marketing` bereikbaar is, zet Offload alles vanzelf door naar dezelfde plek onder `nas_root`.
-7. Groene melding **"Deze kaart mag geformatteerd worden"**? Dan staat elk foto- en videobestand van die kaart geverifieerd op de LaCie én op de NAS.
+4. **Ontbrekende bestanden:** is een nieuw bestand opgenomen tussen bestanden die al samen in één map staan (en staat het grootste deel van die sessie daar), dan stelt Offload voor om het aan die map toe te voegen. Je ziet de miniaturen; klik er een aan om het over te slaan, en klik op **Voeg toe aan deze map**.
+5. **Nieuwe bestanden** staan per opnamedag in sessies. Een nieuwe sessie begint na meer dan 30 minuten zonder opnames. Vink een sessie aan, of klik op losse bestanden; met shift+klik selecteer je een hele reeks. Kies een klant, een datum en een shootnaam en klik op **Kopieer selectie**. Herhaal dit voor de volgende klant.
+6. De bestanden komen plat in `E:\00_Bronbestanden\<klant>\JJ-MM-DD_<shoot>\`, bv. `01_VMRE\26-09-11_teambuilding\`, zonder de camera-mappen zoals `DCIM\100MSDCF`. Een klant mag een tussenniveau hebben (`02_Cleanpoint\01_Eke`), en met **Submap** kun je bv. `Drone` of `Camera` kiezen. Het dashboard toont vooraf de doelmap.
+7. Zodra `\\NAS-A-PRIMARY\Marketing` bereikbaar is, zet Offload alles vanzelf door naar dezelfde plek onder `nas_root`.
+8. Groene melding **"Deze kaart mag geformatteerd worden"**? Dan staat elk foto- en videobestand van die kaart geverifieerd op de LaCie én op de NAS.
 
 ## Logboek
 

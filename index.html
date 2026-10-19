@@ -72,6 +72,12 @@
   .tile[data-state="lacie"] .st::after { content: "LaCie ✓"; }
   .tile[data-state="safe"] .st { background: var(--ok-bg); color: var(--ok); }
   .tile[data-state="safe"] .st::after { content: "LaCie + NAS ✓"; }
+  .suggest { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-bg); }
+  .suggest .shead { justify-content: space-between; }
+  .minis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .mini { width: 104px; font-size: 11px; cursor: pointer; user-select: none; }
+  .mini.off { opacity: .35; }
+  .mini.off .fname { text-decoration: line-through; }
   .fname { display: block; margin-top: 4px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .assign { position: sticky; bottom: 0; z-index: 2; margin: 14px -18px -18px; padding: 14px 18px; background: var(--panel);
@@ -187,14 +193,14 @@ const thumbUrl = (drive, rel) => `/api/thumb?drive=${encodeURIComponent(drive)}&
 const img = (drive, rel) => `<img loading="lazy" alt="" src="${thumbUrl(drive, rel)}" onerror="this.remove()">`;
 
 function buildCard(c, s, key) {
-  const b = { key, drive: c.drive, files: c.files, sel: new Set(), last: null, states: [] };
+  const b = { key, drive: c.drive, files: c.files, sel: new Set(), last: null, states: [], excluded: new Set() };
   b.sess = sessions(c.files, s.gap_minutes);
   b.order = b.sess.flat();
   b.pos = {};
   b.order.forEach((i, p) => b.pos[i] = p);
 
   let html = `<div class="cardtitle">${esc(c.label)} <span class="muted">(${esc(c.drive)})</span></div>
-    <div class="stats muted" data-stats></div><div data-banner></div>`;
+    <div class="stats muted" data-stats></div><div data-banner></div><div data-suggest></div>`;
   let day = '';
   b.sess.forEach((ids, si) => {
     const f0 = c.files[ids[0]], f1 = c.files[ids.at(-1)];
@@ -255,6 +261,20 @@ function onCardClick(b, e) {
   }
   if (e.target.closest('[data-adopt]')) {
     post('/api/adopt', { drive: b.drive }).then(tick);
+    return;
+  }
+  const mini = e.target.closest('.mini');
+  if (mini) {  // bestand uit de suggestie halen of er terug in zetten
+    const i = +mini.dataset.i;
+    b.excluded.has(i) ? b.excluded.delete(i) : b.excluded.add(i);
+    return renderSuggest(b);
+  }
+  const add = e.target.closest('[data-addto]');
+  if (add) {
+    const { folder, ids } = b.suggest[+add.dataset.addto];
+    const files = ids.filter(i => !b.excluded.has(i)).map(i => b.files[i][0]);
+    if (files.length && confirm(`${files.length} bestanden toevoegen aan ${folder}?`))
+      post('/api/import', { drive: b.drive, files, folder }).then(tick);
     return;
   }
   const sess = e.target.closest('input[data-sess]');
@@ -337,7 +357,51 @@ function updateCard(b, c, s) {
     else if (!k.dup) banner += `<div class="banner wait">Alles staat op de LaCie. Wacht op de NAS (${k.safe || 0}/${total}). Nog niet formatteren.</div>`;
   }
   b.el.querySelector('[data-banner]').innerHTML = banner;
+  b.suggest = suggestions(b, c);
+  renderSuggest(b);
   refreshSel(b);
+}
+
+// Ontbrekende bestanden: een nieuw bestand dat opgenomen is tussen bestanden die al in één map staan,
+// hoort daar waarschijnlijk ook bij. Alleen als die map het grootste deel van de sessie bevat.
+function suggestions(b, c) {
+  const out = {};
+  for (const ids of b.sess) {
+    const where = ids.map(i => c.files[i][4]);
+    const inSession = {};
+    ids.forEach((i, p) => {
+      if (b.states[i] !== 'new') return;
+      let prev = '', next = '';
+      for (let q = p - 1; q >= 0 && !prev; q--) prev = where[q];
+      for (let q = p + 1; q < ids.length && !next; q++) next = where[q];
+      const folder = prev && next ? (prev === next ? prev : '') : prev || next;
+      if (folder) (inSession[folder] ||= []).push(i);
+    });
+    for (const [folder, news] of Object.entries(inSession)) {
+      const there = where.filter(w => w === folder).length;
+      if (there >= ids.length / 2) (out[folder] ||= []).push(...news);
+    }
+  }
+  return Object.entries(out).map(([folder, ids]) => ({ folder, ids }));
+}
+
+function renderSuggest(b) {
+  b.el.querySelector('[data-suggest]').innerHTML = b.suggest.map((s, k) => {
+    const on = s.ids.filter(i => !b.excluded.has(i));
+    return `<div class="suggest">
+      <div class="shead">
+        <span><b>${s.ids.length} ${s.ids.length === 1 ? 'bestand ontbreekt' : 'bestanden ontbreken'} waarschijnlijk in ${esc(s.folder)}</b>
+          <span class="muted"> · opgenomen tussen bestanden die daar al staan · ${gb(on.reduce((a, i) => a + b.files[i][1], 0))}</span></span>
+        <button type="button" data-addto="${k}" ${b.busy || !on.length ? 'disabled' : ''}>Voeg ${on.length} toe aan deze map</button>
+      </div>
+      <div class="minis">${s.ids.map(i => {
+        const [rel, , t] = b.files[i], name = rel.split('/').pop();
+        return `<div class="mini ${b.excluded.has(i) ? 'off' : ''}" data-i="${i}" title="Klik om ${b.excluded.has(i) ? 'terug toe te voegen' : 'over te slaan'}">
+          <div class="thumb">${esc(name.split('.').pop())}${img(b.drive, rel)}</div>
+          <span class="fname">${esc(name)}</span><span class="muted">${hm(t)}</span></div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
 }
 
 let lacieRoot = '';

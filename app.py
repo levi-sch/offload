@@ -329,13 +329,25 @@ def file_states(card, reg, lidx):
 
 # ---------- taken ----------
 
-def import_card(card_root, card_label, files, lacie_root, client, shoot_name, job, lidx=None, subdir=''):
-    """Kopieer naar <klant>/<shoot>/[submap]/<bestandsnaam>: plat, zonder de mappen van de camera."""
-    shoot = lacie_root / client / shoot_name
-    mpath = shoot / MANIFEST
-    (shoot / subdir).mkdir(parents=True, exist_ok=True)
-    ensure_manifest(mpath, str(client), shoot_name)
+def open_manifest(lacie_root, mdir, card_label):
+    """Manifest van een shootmap, aangemaakt als het nog niet bestaat, met deze kaart erin vermeld."""
+    parts = mdir.relative_to(lacie_root).parts
+    mpath = mdir / MANIFEST
+    ensure_manifest(mpath, '\\'.join(parts[:-1]), parts[-1] if parts else '')
     update_manifest(mpath, lambda m: m['cards'].append(card_label) if card_label not in m['cards'] else None)
+    return mpath
+
+
+def import_card(card_root, card_label, files, lacie_root, folder, job, lidx=None):
+    """Kopieer plat naar <LaCie>/<folder>/<bestandsnaam>, zonder de mappen van de camera.
+
+    folder is een nieuwe shootmap (<klant>/JJ-MM-DD_<shoot>[/submap]) of een bestaande map waar
+    ontbrekende bestanden aan toegevoegd worden. Het manifest komt in de shootmap erboven.
+    """
+    target = lacie_root / folder
+    shoot, _ = manifest_dir(lacie_root, (Path(folder) / '_').as_posix())
+    target.mkdir(parents=True, exist_ok=True)
+    mpath = open_manifest(lacie_root, shoot, card_label)
 
     def progress(n):
         job['work_done'] += n
@@ -346,7 +358,7 @@ def import_card(card_root, card_label, files, lacie_root, client, shoot_name, jo
         src = card_root / rel
         entry = {'src': rel, 'rel': rel, 'size': size, 'sha256': '', 'lacie_ok': False, 'nas_ok': False, 'error': ''}
         try:
-            dst, h = free_dest(shoot / subdir / src.name, src)
+            dst, h = free_dest(target / src.name, src)
             if h is None:
                 h = copy_verified(src, dst, progress=progress)
             entry.update(rel=dst.relative_to(shoot).as_posix(), sha256=h, lacie_ok=True)
@@ -355,7 +367,7 @@ def import_card(card_root, card_label, files, lacie_root, client, shoot_name, jo
             logbook(lacie_root, 'gekopieerd', card_label, rel, str(dst.relative_to(lacie_root)), size, h)
         except OSError as e:
             entry['error'] = str(e)
-            logbook(lacie_root, 'fout bij kopiëren', card_label, rel, str(shoot.relative_to(lacie_root)), size, '', str(e))
+            logbook(lacie_root, 'fout bij kopiëren', card_label, rel, str(folder), size, '', str(e))
 
         def add(m):
             # een eerdere mislukte poging van hetzelfde kaartbestand vervangen
@@ -369,13 +381,9 @@ def import_card(card_root, card_label, files, lacie_root, client, shoot_name, jo
 def register(lacie_root, lacie_rel, src_rel, size, sha, card_label):
     """Een bestand dat al op de LaCie stond (en dezelfde hash heeft) opnemen, zodat het ook naar de NAS gaat."""
     mdir, rel = manifest_dir(lacie_root, lacie_rel)
-    parts = mdir.relative_to(lacie_root).parts
-    mpath = mdir / MANIFEST
-    ensure_manifest(mpath, parts[0] if parts else '', parts[1] if len(parts) > 1 else '')
+    mpath = open_manifest(lacie_root, mdir, card_label)
 
     def add(m):
-        if card_label not in m['cards']:
-            m['cards'].append(card_label)
         if not any(f['rel'] == rel and f['lacie_ok'] for f in m['files']):
             m['files'].append({'src': src_rel, 'rel': rel, 'size': size, 'sha256': sha, 'lacie_ok': True,
                                'nas_ok': False, 'error': '', 'adopted': True})
@@ -597,20 +605,24 @@ def card_context(body):
 
 def start_import(body):
     lacie, lidx, drive, card, states = card_context(body)
-    shoot, date = clean_name(body.get('shoot', '')), body.get('date', '')
-    if not body.get('client') or not shoot:
-        raise ValueError('Vul een klant en een shootnaam in.')
-    client = clean_path(body['client'], 2)
-    subdir = clean_path(body['subdir'], 1) if str(body.get('subdir') or '').strip() else Path()
-    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date):
-        raise ValueError('Ongeldige datum.')
     wanted = set(body.get('files') or [])
     todo = [tuple(f[:3]) for f in states if f[0] in wanted and f[3] == 'new']
     if not todo:
         raise ValueError('Geen nieuwe bestanden geselecteerd.')
-    shoot_name = f'{date[2:]}_{shoot}'  # 26-09-11_teambuilding, zoals de bestaande mappen
-    start_job('import', str(client / shoot_name / subdir), todo,
-              lambda: import_card(Path(drive), card['label'], todo, lacie, client, shoot_name, JOB, lidx, subdir))
+    if body.get('folder'):  # ontbrekende bestanden toevoegen aan een map die al bestaat
+        folder = clean_path(body['folder'], 5)
+        if not (lacie / folder).is_dir():
+            raise ValueError(f'Map bestaat niet (meer): {folder}')
+    else:
+        shoot, date = clean_name(body.get('shoot', '')), body.get('date', '')
+        if not body.get('client') or not shoot:
+            raise ValueError('Vul een klant en een shootnaam in.')
+        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date):
+            raise ValueError('Ongeldige datum.')
+        subdir = clean_path(body['subdir'], 1) if str(body.get('subdir') or '').strip() else Path()
+        folder = clean_path(body['client'], 2) / f'{date[2:]}_{shoot}' / subdir  # 26-09-11_teambuilding
+    start_job('import', str(folder), todo,
+              lambda: import_card(Path(drive), card['label'], todo, lacie, folder, JOB, lidx))
 
 
 def start_adopt(body):
