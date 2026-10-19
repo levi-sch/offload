@@ -115,7 +115,14 @@ def load_json(p):
 def save_json(p, data):
     tmp = p.with_name(p.name + '.tmp')
     tmp.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding='utf-8')
-    os.replace(tmp, p)
+    # Windows weigert vervangen zolang iemand het bestand open heeft (virusscanner, indexer, Verkenner)
+    for attempt in range(30):
+        try:
+            return os.replace(tmp, p)
+        except PermissionError:
+            if attempt == 29:
+                raise
+            time.sleep(0.2)
 
 
 def update_manifest(mpath, fn):
@@ -129,7 +136,8 @@ def read_manifests(lacie_root):
     out = []
     for p in sorted(lacie_root.glob(f'*/*/{MANIFEST}')):
         try:
-            out.append((p, load_json(p)))
+            with MLOCK:  # niet lezen terwijl een andere thread hem vervangt
+                out.append((p, load_json(p)))
         except (OSError, ValueError):
             log.exception('manifest onleesbaar: %s', p)
     return out
@@ -195,6 +203,7 @@ def nas_pass(lacie_root, nas_root, status, stop=lambda: False):
             if not f['lacie_ok'] or f['nas_ok'] or f.get('nas_conflict'):
                 continue
             if stop():
+                status['current'] = ''
                 return
             status['current'] = f['rel']
             dst = target / f['rel']

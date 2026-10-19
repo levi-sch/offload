@@ -55,6 +55,13 @@ def main():
         idx = app.index(m for _, m in app.read_manifests(lacie))
         assert app.card_summary('X:\\', {'label': 'KAART1', 'files': files}, idx)['safe']
 
+        # manifest vervangen terwijl iemand anders hem kort open heeft (bug WinError 5)
+        mpath = shoot / app.MANIFEST
+        fh = open(mpath, 'rb')
+        app.threading.Timer(0.5, fh.close).start()
+        app.save_json(mpath, app.load_json(mpath))
+        assert fh.closed
+
         # nieuw bestand op dezelfde kaart -> alleen dat is nieuw
         (card / 'C0002.MP4').write_bytes(b'nog een clip')
         files = app.media_files(card)
