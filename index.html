@@ -19,41 +19,89 @@
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, "Segoe UI", sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
-  h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+  main { max-width: 1100px; margin: 0 auto; padding: 0 16px 64px; }
+  .muted { color: var(--muted); }
+
+  /* ---------- kop ---------- */
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 18px 0; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
   nav { display: flex; gap: 4px; margin-right: auto; }
   nav button { background: none; color: var(--muted); padding: 6px 12px; }
-  nav button[aria-current="page"] { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 28px 0 10px; }
-  h3.day { font-size: 15px; margin: 18px 0 6px; text-transform: capitalize; }
+  nav button:hover { color: var(--text); }
+  nav button[aria-current="page"] { background: var(--panel); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+  .pipe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .pipe .arrow { color: var(--muted); font-size: 13px; }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
           background: var(--panel); border: 1px solid var(--line); font-size: 13px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-  .ok .dot { background: var(--ok); } .wait .dot { background: var(--wait); } .bad .dot { background: var(--bad); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .ok .dot, .dot.ok { background: var(--ok); } .wait .dot, .dot.wait { background: var(--wait); } .bad .dot, .dot.bad { background: var(--bad); }
+  .dot.todo { background: var(--accent); } .dot.lacie { background: var(--ok); opacity: .45; }
+
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 28px 0 10px; }
+
+  /* ---------- bouwstenen ---------- */
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 12px; }
-  .muted { color: var(--muted); }
   .banner { border-radius: 10px; padding: 12px 16px; font-weight: 600; margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .banner > span { flex: 1 1 320px; }
   .banner.ok { background: var(--ok-bg); color: var(--ok); }
   .banner.wait { background: var(--wait-bg); color: var(--wait); }
   .banner.bad { background: var(--bad-bg); color: var(--bad); }
   .banner.info { background: var(--accent-bg); color: var(--text); font-weight: 400; }
   .stats { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 4px; }
-  .cardtitle { font-size: 18px; font-weight: 650; }
   label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
   input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
   input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   button { font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; }
   button:disabled { opacity: .5; cursor: default; }
   button.link { background: none; color: var(--accent); padding: 4px 6px; font-weight: 500; }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; white-space: nowrap; background: var(--track); color: var(--muted); }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.wait { background: var(--wait-bg); color: var(--wait); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .badge.todo { background: var(--accent-bg); color: var(--accent); }
+  .empty { color: var(--muted); padding: 16px; }
+  #offline { position: fixed; inset: auto 16px 16px 16px; }
 
-  .session { border-top: 1px solid var(--line); padding: 10px 0; }
-  .shead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
-  .scheck { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--text); cursor: pointer; }
+  /* statusrand links: dezelfde kleuren voor sessies en imports */
+  [data-status] { position: relative; }
+  [data-status]::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--line); }
+  [data-status="todo"]::before { background: var(--accent); }
+  [data-status="check"]::before, [data-status="wait"]::before { background: var(--wait); }
+  [data-status="lacie"]::before, [data-status="safe"]::before, [data-status="ok"]::before { background: var(--ok); }
+  [data-status="bad"]::before { background: var(--bad); }
+
+  /* ---------- kaart ---------- */
+  .cardhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  .cardtitle { font-size: 18px; font-weight: 650; }
+  .meter { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--track); margin: 14px 0 8px; }
+  .meter > span { transition: width .4s; }
+  .meter .m-safe { background: var(--ok); }
+  .meter .m-lacie { background: color-mix(in srgb, var(--ok) 45%, var(--track)); }
+  .meter .m-dup { background: var(--wait); }
+  .meter .m-new { background: var(--accent); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend b { color: var(--text); }
+
+  h3.day { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 15px; margin: 22px 0 4px; }
+  h3.day .muted { font-size: 13px; font-weight: 400; }
+  h3.day .ok { color: var(--ok); font-size: 13px; }
+
+  .session { border-top: 1px solid var(--line); padding: 12px 0 12px 16px; }
+  .shead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+  .scheck { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--text); cursor: pointer; }
   .scheck input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .scheck input:disabled { visibility: hidden; }
+  .sinfo { font-size: 13px; }
+  .shead .link { margin-left: auto; }
   .strip { display: flex; gap: 6px; margin: 8px 0 0 26px; overflow: hidden; }
   .strip img { height: 54px; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 4px; background: var(--track); }
+  /* al overgezet: kleiner en gedimd, zodat wat nog moet eruit springt */
+  .session.done .scheck { color: var(--muted); font-weight: 500; }
+  .session.done .strip { opacity: .4; filter: grayscale(.6); }
+  .session.done .strip img { height: 34px; }
+
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 10px 0 0 26px; }
   .tile { position: relative; border: 2px solid transparent; border-radius: 9px; background: var(--bg); padding: 5px; cursor: pointer; user-select: none; font-size: 12px; }
   .tile.sel { border-color: var(--accent); background: var(--accent-bg); }
@@ -81,29 +129,26 @@
   .fname { display: block; margin-top: 4px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .assign { position: sticky; bottom: 0; z-index: 2; margin: 14px -18px -18px; padding: 14px 18px; background: var(--panel);
-            border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; box-shadow: 0 -6px 16px rgba(0,0,0,.08);
+            border-top: 2px solid var(--accent); border-radius: 0 0 12px 12px; box-shadow: 0 -6px 16px rgba(0,0,0,.08);
             display: grid; grid-template-columns: .9fr 1.4fr .9fr 1.2fr .9fr auto; gap: 10px; align-items: end; }
-  .selinfo { font-weight: 650; align-self: center; }
+  .selinfo { font-weight: 650; align-self: center; color: var(--accent); }
   .dest { grid-column: 1 / -1; font-size: 13px; word-break: break-all; }
   @media (max-width: 760px) { .assign { grid-template-columns: 1fr; } .grid, .strip { margin-left: 0; } }
 
+  /* ---------- taak en imports ---------- */
   .bar { height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; }
   .bar > div { height: 100%; background: var(--accent); transition: width .4s; }
-  .row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 16px 12px 20px; border-top: 1px solid var(--line); }
   .row:first-child { border-top: 0; }
+  .row[data-status]::before { left: 8px; }
   .list { padding: 0; overflow: hidden; }
-  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
-  .badge.ok { background: var(--ok-bg); color: var(--ok); }
-  .badge.wait { background: var(--wait-bg); color: var(--wait); }
-  .badge.bad { background: var(--bad-bg); color: var(--bad); }
   .path { font-weight: 600; word-break: break-all; }
   details { grid-column: 1 / -1; font-size: 13px; }
   details li { word-break: break-all; }
   summary { cursor: pointer; color: var(--bad); }
-  .empty { color: var(--muted); padding: 16px; }
-  #offline { position: fixed; inset: auto 16px 16px 16px; }
 
-  .logtools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+  /* ---------- logboek ---------- */
+  .logtools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 10px; }
   .logtools input { flex: 1 1 260px; }
   .tablewrap { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -121,7 +166,7 @@
       <button type="button" data-tab="overview" aria-current="page">Overzicht</button>
       <button type="button" data-tab="log">Logboek</button>
     </nav>
-    <div id="top"></div>
+    <div id="top" class="pipe"></div>
   </header>
   <div id="logerror"></div>
 
@@ -130,7 +175,7 @@
     <div id="nocard" class="panel muted">Geen SD-kaart gevonden. Steek een kaart in; dit scherm opent dan vanzelf.</div>
     <div id="cards"></div>
     <div id="job"></div>
-    <h2>Imports</h2>
+    <h2>Imports op de LaCie</h2>
     <div id="imports" class="panel list"></div>
   </section>
 
@@ -165,12 +210,15 @@ const post = async (url, body) => {
 };
 
 // ---------- kop ----------
-function renderTop(s) {
-  $('#top').innerHTML =
-    (s.lacie ? chip('ok', 'LaCie ' + esc(s.lacie)) : chip('bad', 'LaCie niet aangesloten')) + ' ' +
-    (s.nas.reachable == null ? chip('', 'NAS controleren…')
+function renderTop(s) {  // de keten waarlangs elk bestand gaat: kaart → LaCie → NAS
+  const n = s.cards.length;
+  $('#top').innerHTML = [
+    n ? chip('ok', n === 1 ? 'SD-kaart ' + esc(s.cards[0].label) : n + ' SD-kaarten') : chip('', 'Geen SD-kaart'),
+    s.lacie ? chip('ok', 'LaCie ' + esc(s.lacie)) : chip('bad', 'LaCie niet aangesloten'),
+    s.nas.reachable == null ? chip('', 'NAS controleren…')
       : s.nas.reachable ? chip('ok', 'NAS bereikbaar' + (s.nas.current ? ' · kopieert ' + esc(s.nas.current.split('/').pop()) : ''))
-      : chip('wait', 'NAS niet bereikbaar'));
+      : chip('wait', 'NAS niet bereikbaar'),
+  ].join('<span class="arrow" aria-hidden="true">→</span>');
   $('#logerror').innerHTML = s.log_error ? `<div class="banner wait">${esc(s.log_error)}</div>` : '';
 }
 
@@ -199,18 +247,25 @@ function buildCard(c, s, key) {
   b.pos = {};
   b.order.forEach((i, p) => b.pos[i] = p);
 
-  let html = `<div class="cardtitle">${esc(c.label)} <span class="muted">(${esc(c.drive)})</span></div>
-    <div class="stats muted" data-stats></div><div data-banner></div><div data-suggest></div>`;
-  let day = '';
+  let html = `<div class="cardhead"><span class="cardtitle">${esc(c.label)}</span><span class="muted">${esc(c.drive)}</span>
+      <span class="muted" data-meta></span></div>
+    <div class="meter" data-meter></div><div class="legend" data-legend></div>
+    <div data-banner></div><div data-suggest></div>`;
+  b.days = [];
   b.sess.forEach((ids, si) => {
     const f0 = c.files[ids[0]], f1 = c.files[ids.at(-1)];
     const d = new Date(f0[2] * 1000).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    if (d !== day) { html += `<h3 class="day">${d}</h3>`; day = d; }
+    if (d !== b.days.at(-1)?.d) {
+      b.days.push({ d, sess: [] });
+      html += `<h3 class="day">${d[0].toUpperCase() + d.slice(1)} <span data-day="${b.days.length - 1}"></span></h3>`;
+    }
+    b.days.at(-1).sess.push(si);
     const peek = [...new Set([0, 1, 2, 3, 4, 5].map(j => ids[Math.floor(j * ids.length / 6)]))];
-    html += `<div class="session">
+    html += `<div class="session" data-s="${si}">
       <div class="shead">
         <label class="scheck"><input type="checkbox" data-sess="${si}"> ${hm(f0[2])} – ${hm(f1[2])}</label>
-        <span class="muted" data-sinfo="${si}"></span>
+        <span class="badge" data-sbadge="${si}"></span>
+        <span class="muted sinfo" data-sinfo="${si}"></span>
         <button type="button" class="link" data-toggle="${si}">Bestanden tonen</button>
       </div>
       <div class="strip">${peek.map(i => img(c.drive, c.files[i][0])).join('')}</div>
@@ -250,6 +305,9 @@ function buildCard(c, s, key) {
 }
 
 const selectable = (b, i) => b.states[i] === 'new' && !b.busy;
+const SESSION_BADGE = { todo: ['todo', 'Te doen'], check: ['wait', 'Te controleren'], scan: ['', 'LaCie doorzoeken…'],
+                        lacie: ['ok', 'Op LaCie ✓'], safe: ['ok', 'LaCie + NAS ✓'] };
+const METER = [['safe', 'op LaCie + NAS'], ['lacie', 'op LaCie, wacht op NAS'], ['dup', 'te controleren'], ['new', 'nieuw'], ['scan', 'nog niet doorzocht']];
 
 function onCardClick(b, e) {
   const toggle = e.target.closest('[data-toggle]');
@@ -330,19 +388,39 @@ function updateCard(b, c, s) {
     t.dataset.state = b.states[i];
     t.title = c.files[i][4] ? 'Staat in ' + c.files[i][4] : '';
   });
+  const todo = [];
   b.sess.forEach((ids, si) => {
     const n = st => ids.filter(i => b.states[i] === st).length;
+    // te doen zolang er iets nieuw is; daarna te controleren; pas overgezet als alles op de LaCie staat
+    const st = n('new') ? 'todo' : n('dup') ? 'check' : n('scan') ? 'scan' : n('safe') === ids.length ? 'safe' : 'lacie';
+    todo[si] = st === 'todo' || st === 'check';
+    const el = b.el.querySelector(`[data-s="${si}"]`);
+    el.dataset.status = st;
+    el.classList.toggle('done', st === 'lacie' || st === 'safe');
+    const [cls, txt] = SESSION_BADGE[st];
+    const badge = b.el.querySelector(`[data-sbadge="${si}"]`);
+    badge.className = 'badge ' + cls;
+    badge.textContent = txt;
     const parts = [`${ids.length} bestanden · ${gb(ids.reduce((a, i) => a + c.files[i][1], 0))}`];
-    if (n('new')) parts.push(`<b style="color:var(--text)">${n('new')} nieuw</b>`);
-    if (n('dup')) parts.push(`<span style="color:var(--wait)">${n('dup')} al op LaCie, niet gecontroleerd</span>`);
-    if (n('lacie') + n('safe')) parts.push(`${n('lacie') + n('safe')} gecontroleerd op LaCie`);
+    if (n('new') && n('new') < ids.length) parts.push(`<b style="color:var(--text)">${n('new')} nieuw</b>`);
+    if (n('dup') && n('dup') < ids.length) parts.push(`<span style="color:var(--wait)">${n('dup')} al op LaCie, niet gecontroleerd</span>`);
+    if (todo[si] && n('lacie') + n('safe')) parts.push(`${n('lacie') + n('safe')} al overgezet`);
     b.el.querySelector(`[data-sinfo="${si}"]`).innerHTML = parts.join(' · ');
+  });
+  b.days.forEach((d, k) => {
+    const open = d.sess.filter(si => todo[si]).length;
+    b.el.querySelector(`[data-day="${k}"]`).innerHTML = open
+      ? `<span class="muted">${open} van ${d.sess.length} ${d.sess.length === 1 ? 'sessie' : 'sessies'} te doen</span>`
+      : `<span class="ok">alles overgezet ✓</span>`;
   });
 
   const k = c.counts, total = c.files.length;
-  const onLacie = (k.lacie || 0) + (k.safe || 0);
-  b.el.querySelector('[data-stats]').innerHTML = `<span>${total} bestanden · ${gb(c.files.reduce((a, f) => a + f[1], 0))}</span>
-    <span>${b.sess.length} sessies</span><span>${onLacie}/${total} gecontroleerd op LaCie</span><span>${k.safe || 0}/${total} op NAS</span>`;
+  b.el.querySelector('[data-meta]').textContent =
+    `${total} bestanden ·${gb(c.files.reduce((a, f) => a + f[1], 0))} · ${b.sess.length} ${b.sess.length === 1 ? 'sessie' : 'sessies'}`;
+  b.el.querySelector('[data-meter]').innerHTML = METER.map(([st]) =>
+    k[st] ? `<span class="m-${st}" style="width:${(100 * k[st] / total).toFixed(2)}%"></span>` : '').join('');
+  b.el.querySelector('[data-legend]').innerHTML = METER.map(([st, txt]) =>
+    k[st] ? `<span><i class="dot ${st === 'safe' ? 'ok' : st === 'dup' ? 'wait' : st === 'new' ? 'todo' : st}"></i><b>${k[st]}</b> ${txt}</span>` : '').join('');
 
   let banner = '';
   if (k.scan) banner = `<div class="banner info">De LaCie wordt doorzocht op dubbels…</div>`;
@@ -452,7 +530,8 @@ function badge(name, ok, total, errors, waiting) {
 function renderImports(s) {
   if (!s.lacie) return $('#imports').innerHTML = '<div class="empty">Sluit de LaCie aan om de imports te zien.</div>';
   if (!s.imports.length) return $('#imports').innerHTML = '<div class="empty">Nog geen imports via Offload.</div>';
-  $('#imports').innerHTML = s.imports.map(m => `<div class="row">
+  $('#imports').innerHTML = s.imports.map(m => `<div class="row" data-status="${
+    m.lacie_errors || m.nas_errors ? 'bad' : m.nas_ok === m.count ? 'ok' : 'wait'}">
     <div><div class="path">${esc(m.path)}</div>
       <div class="muted">${m.count} bestanden · ${gb(m.bytes)} · ${esc(m.created.replace('T', ' '))}${m.cards.length ? ' · kaart ' + m.cards.map(esc).join(', ') : ''}${m.adopted ? ` · ${m.adopted} bestonden al` : ''}</div></div>
     ${badge('LaCie', m.lacie_ok, m.count, m.lacie_errors, 'bezig')}
@@ -502,7 +581,7 @@ async function tick() {
     $('#offline').hidden = true;
   } catch { $('#offline').hidden = false; }
   if (s) try {
-    if (changed('top', [s.lacie, s.nas, s.log_error])) renderTop(s);
+    if (changed('top', [s.lacie, s.nas, s.log_error, s.cards.map(c => c.label)])) renderTop(s);
     renderCards(s);
     renderJob(s.job);
     if (changed('imports', [s.imports, s.nas.reachable, !!s.lacie])) renderImports(s);
