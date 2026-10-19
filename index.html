@@ -76,8 +76,9 @@
 
   .assign { position: sticky; bottom: 0; z-index: 2; margin: 14px -18px -18px; padding: 14px 18px; background: var(--panel);
             border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; box-shadow: 0 -6px 16px rgba(0,0,0,.08);
-            display: grid; grid-template-columns: 1fr 1.3fr .9fr 1.3fr auto; gap: 10px; align-items: end; }
+            display: grid; grid-template-columns: .9fr 1.4fr .9fr 1.2fr .9fr auto; gap: 10px; align-items: end; }
   .selinfo { font-weight: 650; align-self: center; }
+  .dest { grid-column: 1 / -1; font-size: 13px; word-break: break-all; }
   @media (max-width: 760px) { .assign { grid-template-columns: 1fr; } .grid, .strip { margin-left: 0; } }
 
   .bar { height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; margin: 12px 0 8px; }
@@ -139,6 +140,7 @@
 </main>
 
 <datalist id="clients"></datalist>
+<datalist id="subdirs"><option value="Camera"><option value="Drone"><option value="Foto's"><option value="Video's"></datalist>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -216,10 +218,12 @@ function buildCard(c, s, key) {
   });
   html += `<form class="assign" hidden>
       <div class="selinfo" data-selinfo></div>
-      <label>Klant<input name="client" list="clients" required placeholder="bv. 09_Altum_Capital"></label>
+      <label>Klant<input name="client" list="clients" required placeholder="bv. 02_Cleanpoint\\01_Eke"></label>
       <label>Datum shoot<input name="date" type="date" required></label>
-      <label>Shootnaam<input name="shoot" required placeholder="bv. Bedrijfsfilm"></label>
+      <label>Shootnaam<input name="shoot" required placeholder="bv. teambuilding"></label>
+      <label>Submap (optioneel)<input name="subdir" list="subdirs" placeholder="bv. Drone"></label>
       <button>Kopieer selectie</button>
+      <div class="dest muted" data-dest></div>
     </form>`;
 
   b.el = document.createElement('div');
@@ -227,11 +231,12 @@ function buildCard(c, s, key) {
   b.el.innerHTML = html;
   b.form = b.el.querySelector('form');
   b.form.date.addEventListener('input', () => b.form.date.dataset.touched = '1');
+  b.form.addEventListener('input', () => showDest(b));
   b.form.addEventListener('submit', async e => {
     e.preventDefault();
     const f = b.form;
     const ok = await post('/api/import', { drive: b.drive, files: [...b.sel].map(i => b.files[i][0]),
-      client: f.client.value, date: f.date.value, shoot: f.shoot.value });
+      client: f.client.value, date: f.date.value, shoot: f.shoot.value, subdir: f.subdir.value });
     if (ok) { b.sel.clear(); b.last = null; f.shoot.value = ''; delete f.date.dataset.touched; refreshSel(b); tick(); }
   });
   b.el.addEventListener('click', e => onCardClick(b, e));
@@ -286,6 +291,13 @@ function refreshSel(b) {
   b.el.querySelector('[data-selinfo]').textContent =
     `${sel.length} geselecteerd · ${gb(sel.reduce((a, i) => a + b.files[i][1], 0))}`;
   if (!b.form.date.dataset.touched) b.form.date.value = isoDate(Math.min(...sel.map(i => b.files[i][2])));
+  showDest(b);
+}
+
+function showDest(b) {  // toont vooraf waar de bestanden komen, in dezelfde vorm als de bestaande mappen
+  const f = b.form, parts = [lacieRoot, f.client.value.trim(), f.date.value && f.shoot.value.trim()
+    ? f.date.value.slice(2) + '_' + f.shoot.value.trim() : '…', f.subdir.value.trim()].filter(Boolean);
+  b.el.querySelector('[data-dest]').textContent = '→ ' + parts.join('\\') + '\\ (alle bestanden samen, zonder camera-mappen)';
 }
 
 function updateCard(b, c, s) {
@@ -328,7 +340,9 @@ function updateCard(b, c, s) {
   refreshSel(b);
 }
 
+let lacieRoot = '';
 function renderCards(s) {
+  lacieRoot = s.lacie || '';
   if (changed('clients', s.clients)) $('#clients').innerHTML = s.clients.map(c => `<option value="${esc(c)}">`).join('');
   $('#nocard').hidden = s.cards.length > 0;
   const seen = new Set();

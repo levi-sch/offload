@@ -173,6 +173,28 @@ def clean_name(s):
     return re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', str(s)).strip(' .')
 
 
+def clean_path(s, max_parts):
+    """'02_Cleanpoint\\01_Eke' -> Path; geen '..', lege delen of te diepe paden."""
+    parts = [clean_name(p) for p in re.split(r'[\\/]+', str(s)) if p.strip()]
+    if not parts or not all(parts) or len(parts) > max_parts:
+        raise ValueError(f'Ongeldige mapnaam: {s}')
+    return Path(*parts)
+
+
+SHOOT_RE = re.compile(r'^\d{2}-(\d{2}|xx)-(\d{2}|xx)_', re.I)  # shootmappen zoals 26-09-11_teambuilding
+
+
+def client_dirs(lacie_root):
+    """Klantmappen voor de keuzelijst: het bovenste niveau plus tussenniveaus zoals 02_Cleanpoint\\01_Eke."""
+    out = []
+    for d in sorted(lacie_root.iterdir()):
+        if d.is_dir() and not d.name.startswith(('.', '$')):
+            out.append(d.name)
+            out += [f'{d.name}\\{s.name}' for s in sorted(d.iterdir())
+                    if s.is_dir() and not SHOOT_RE.match(s.name) and not s.name.startswith('.')]
+    return out
+
+
 def thumbnail(card_root, rel):
     """Klein voorbeeldbeeld: de EXIF-miniatuur van een JPG, of de Sony-miniatuur van een clip."""
     p = card_root / rel
@@ -236,7 +258,9 @@ def ensure_manifest(mpath, client, shoot):
 
 
 def read_manifests(lacie_root):
-    paths = [lacie_root / MANIFEST, *lacie_root.glob(f'*/{MANIFEST}'), *lacie_root.glob(f'*/*/{MANIFEST}')]
+    # tot 3 niveaus diep: klant / tussenniveau / shoot (bv. 02_Cleanpoint\01_Eke\25-08-12_Bert)
+    paths = [lacie_root / MANIFEST, *lacie_root.glob(f'*/{MANIFEST}'), *lacie_root.glob(f'*/*/{MANIFEST}'),
+             *lacie_root.glob(f'*/*/*/{MANIFEST}')]
     out = []
     for p in sorted(p for p in paths if p.exists()):
         try:
@@ -248,9 +272,14 @@ def read_manifests(lacie_root):
 
 
 def manifest_dir(lacie_root, lacie_rel):
-    """Map waar het manifest van een LaCie-bestand hoort (<klant>/<shoot>) en het pad daarbinnen."""
+    """Map waar het manifest van een LaCie-bestand hoort en het pad daarbinnen.
+
+    Dat is de diepste shootmap (JJ-MM-DD_naam) boven het bestand, zodat Camera/Drone/bewerkt
+    erbinnen vallen; zonder shootmap de eerste twee niveaus.
+    """
     parts = Path(lacie_rel).parts
-    n = min(2, len(parts) - 1)
+    shoots = [i for i, p in enumerate(parts[:-1]) if SHOOT_RE.match(p)]
+    n = shoots[-1] + 1 if shoots else min(2, len(parts) - 1)
     return lacie_root.joinpath(*parts[:n]), '/'.join(parts[n:])
 
 
@@ -299,11 +328,12 @@ def file_states(card, reg, lidx):
 
 # ---------- taken ----------
 
-def import_card(card_root, card_label, files, lacie_root, client, shoot_name, job, lidx=None):
+def import_card(card_root, card_label, files, lacie_root, client, shoot_name, job, lidx=None, subdir=''):
+    """Kopieer naar <klant>/<shoot>/[submap]/<bestandsnaam>: plat, zonder de mappen van de camera."""
     shoot = lacie_root / client / shoot_name
     mpath = shoot / MANIFEST
-    shoot.mkdir(parents=True, exist_ok=True)
-    ensure_manifest(mpath, client, shoot_name)
+    (shoot / subdir).mkdir(parents=True, exist_ok=True)
+    ensure_manifest(mpath, str(client), shoot_name)
     update_manifest(mpath, lambda m: m['cards'].append(card_label) if card_label not in m['cards'] else None)
 
     def progress(n):
@@ -315,7 +345,7 @@ def import_card(card_root, card_label, files, lacie_root, client, shoot_name, jo
         src = card_root / rel
         entry = {'src': rel, 'rel': rel, 'size': size, 'sha256': '', 'lacie_ok': False, 'nas_ok': False, 'error': ''}
         try:
-            dst, h = free_dest(shoot / rel, src)
+            dst, h = free_dest(shoot / subdir / src.name, src)
             if h is None:
                 h = copy_verified(src, dst, progress=progress)
             entry.update(rel=dst.relative_to(shoot).as_posix(), sha256=h, lacie_ok=True)
@@ -478,9 +508,13 @@ def detect_loop():
                     c = cards[d]
                     logbook(lacie, 'kaart ingestoken', c['label'], d, '', sum(f[1] for f in c['files']), '',
                             f"{len(c['files'])} bestanden")
-                if cards and (new or STATE['lacie_index'] is None):
-                    STATE['lacie_index'] = None
+                # opnieuw doorzoeken bij een nieuwe kaart, en elke 5 min voor wat je intussen met de hand verplaatst
+                stale = time.time() - STATE.get('index_time', 0) > 300 and not JOB['running']
+                if cards and (new or STATE['lacie_index'] is None or stale):
+                    if new:
+                        STATE['lacie_index'] = None
                     STATE['lacie_index'] = build_lacie_index(lacie)
+                    STATE['index_time'] = time.time()
         except Exception:
             log.exception('detectie')
         time.sleep(3)
@@ -536,18 +570,20 @@ def card_context(body):
 
 def start_import(body):
     lacie, lidx, drive, card, states = card_context(body)
-    client, shoot, date = clean_name(body.get('client', '')), clean_name(body.get('shoot', '')), body.get('date', '')
-    if not client or not shoot:
+    shoot, date = clean_name(body.get('shoot', '')), body.get('date', '')
+    if not body.get('client') or not shoot:
         raise ValueError('Vul een klant en een shootnaam in.')
+    client = clean_path(body['client'], 2)
+    subdir = clean_path(body['subdir'], 1) if str(body.get('subdir') or '').strip() else Path()
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date):
         raise ValueError('Ongeldige datum.')
     wanted = set(body.get('files') or [])
     todo = [tuple(f[:3]) for f in states if f[0] in wanted and f[3] == 'new']
     if not todo:
         raise ValueError('Geen nieuwe bestanden geselecteerd.')
-    shoot_name = f'{date}_{shoot}'
-    start_job('import', f'{client}\\{shoot_name}', todo,
-              lambda: import_card(Path(drive), card['label'], todo, lacie, client, shoot_name, JOB, lidx))
+    shoot_name = f'{date[2:]}_{shoot}'  # 26-09-11_teambuilding, zoals de bestaande mappen
+    start_job('import', str(client / shoot_name / subdir), todo,
+              lambda: import_card(Path(drive), card['label'], todo, lacie, client, shoot_name, JOB, lidx, subdir))
 
 
 def start_adopt(body):
@@ -586,7 +622,7 @@ def status():
         'nas': {**STATE['nas'], 'root': CFG['nas_root']},
         'log_error': STATE['log_error'],
         'gap_minutes': CFG['session_gap_minutes'],
-        'clients': sorted(d.name for d in lr.iterdir() if d.is_dir() and not d.name.startswith('.')) if lr else [],
+        'clients': client_dirs(lr) if lr else [],
         'cards': [card_summary(d, c, reg, STATE['lacie_index']) for d, c in sorted(STATE['cards'].items())],
         'job': JOB,
         'imports': sorted((import_summary(p, m, lr) for p, m in ms), key=lambda x: x['created'], reverse=True),

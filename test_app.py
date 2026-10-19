@@ -60,14 +60,37 @@ def main():
 
         # selectie: alleen de clip naar klant A, foto 2 later naar klant B
         clip = [f for f in files if f[0] == 'C0001.MP4']
-        app.import_card(card_root, 'KAART1', clip, lacie, '01_Klant', '2026-10-19_Shoot', job, lidx)
-        shoot = lacie / '01_Klant/2026-10-19_Shoot'
+        app.import_card(card_root, 'KAART1', clip, lacie, '01_Klant', '26-10-19_Shoot', job, lidx)
+        shoot = lacie / '01_Klant/26-10-19_Shoot'
         assert (shoot / 'C0001.MP4').read_bytes() == (card_root / 'C0001.MP4').read_bytes()
         assert (old / 'C0001.MP4').read_bytes() == b'VIDEO' * 100000  # oude map onaangeroerd
         assert states(card, lacie, lidx)['DCIM/100MSDCF/DSC00002.JPG'] == 'new'
         foto2 = [f for f in files if f[0] == 'DCIM/100MSDCF/DSC00002.JPG']
-        app.import_card(card_root, 'KAART1', foto2, lacie, '02_Andere', '2026-10-19_Event', job, lidx)
-        assert (lacie / '02_Andere/2026-10-19_Event/DCIM/100MSDCF/DSC00002.JPG').exists()
+        client = app.clean_path(r'02_Andere\01_Locatie', 2)
+        app.import_card(card_root, 'KAART1', foto2, lacie, client, '26-10-19_Event', job, lidx, Path('Camera'))
+        event = lacie / '02_Andere/01_Locatie/26-10-19_Event'
+        assert (event / 'Camera/DSC00002.JPG').exists()  # plat: geen DCIM/100MSDCF
+        assert app.load_json(event / app.MANIFEST)['files'][0]['rel'] == 'Camera/DSC00002.JPG'
+        assert r'02_Andere\01_Locatie' in app.client_dirs(lacie)
+        assert r'02_Andere\01_Locatie\26-10-19_Event' not in app.client_dirs(lacie)
+
+        # zelfde bestandsnaam uit twee cameramappen in één platte map: tweede wordt naam_2, niets overschreven
+        (card_root / 'DCIM/101MSDCF').mkdir()
+        (card_root / 'DCIM/101MSDCF/DSC00002.JPG').write_bytes(b'na de teller-reset')
+        app.import_card(card_root, 'KAART1', [('DCIM/101MSDCF/DSC00002.JPG', 18, 0)], lacie, client, '26-10-19_Event', job, lidx, Path('Camera'))
+        assert (event / 'Camera/DSC00002_2.JPG').read_bytes() == b'na de teller-reset'
+        assert (event / 'Camera/DSC00002.JPG').read_bytes() == b'andere klant' * 100
+
+        # mappen: geen '..' of te diepe paden; manifest hoort bij de shootmap (JJ-MM-DD_naam)
+        for bad in ('..', r'01_Klant\..\..', r'a\b\c'):
+            try:
+                app.clean_path(bad, 2)
+                raise AssertionError(bad)
+            except ValueError:
+                pass
+        assert app.manifest_dir(lacie, '02_X/01_Eke/25-08-12_Bert/Camera/A.JPG') == (lacie / '02_X/01_Eke/25-08-12_Bert', 'Camera/A.JPG')
+        assert app.manifest_dir(lacie, '01_VMRE/25-xx-xx_old/Gebouw/B.JPG') == (lacie / '01_VMRE/25-xx-xx_old', 'Gebouw/B.JPG')
+        assert app.manifest_dir(lacie, '01_Klant/oude_map/C.JPG') == (lacie / '01_Klant/oude_map', 'C.JPG')
 
         # identiek bestand opnieuw: geen _2; ander bestand met dezelfde naam: _2, origineel blijft
         assert app.free_dest(shoot / 'C0001.MP4', card_root / 'C0001.MP4')[1] is not None
@@ -80,7 +103,7 @@ def main():
         app.nas_pass(lacie, nas, {})
         bad = next(f for f in app.load_json(shoot / app.MANIFEST)['files'] if f['rel'] == 'C0001.MP4')
         assert not bad['nas_ok'] and 'hash' in bad['nas_error'], bad
-        assert not (nas / '01_Klant/2026-10-19_Shoot/C0001.MP4').exists()
+        assert not (nas / '01_Klant/26-10-19_Shoot/C0001.MP4').exists()
 
         # hersteld -> alles op de NAS (ook het geregistreerde oude bestand) en de kaart is veilig
         (shoot / 'C0001.MP4').write_bytes(good)
