@@ -1,5 +1,6 @@
 """Offload: SD-kaart -> LaCie -> NAS, elk bestand geverifieerd met SHA-256, met een lokaal dashboard."""
 import collections
+import concurrent.futures
 import csv
 import ctypes
 import datetime
@@ -382,28 +383,53 @@ def register(lacie_root, lacie_rel, src_rel, size, sha, card_label):
 
 
 def adopt_files(card_root, card_label, files, lacie_root, lidx, job, mismatch):
-    """Kaartbestanden die al op de LaCie staan: hash vergelijken in plaats van opnieuw kopiëren."""
+    """Kaartbestanden die al op de LaCie staan: hash vergelijken in plaats van opnieuw kopiëren.
+
+    De kaartlezer is de bottleneck (gemeten ~19 MB/s tegen ~110 MB/s voor de LaCie). Daarom leest een
+    tweede thread intussen alle LaCie-kandidaten, één voor één zodat de harde schijf niet moet zoeken.
+    Zo duurt de controle even lang als het lezen van de kaart alleen. De voortgang telt de kaart.
+    """
     def progress(n):
         job['work_done'] += n
 
-    for rel, size, _ in files:
-        job['current'] = rel
-        base = job['work_done']
+    def lacie_hash(c):
         try:
-            h = hash_file(card_root / rel, progress)
-            cands = lidx.get(key(rel, size), [])
-            match = next((c for c in cands if hash_file(lacie_root / c, progress) == h), None)
-            if match:
-                register(lacie_root, match, rel, size, h, card_label)
-                logbook(lacie_root, 'al aanwezig, gecontroleerd', card_label, rel, str(Path(match)), size, h)
-            else:
-                mismatch.add(rel)
-                logbook(lacie_root, 'zelfde naam, andere inhoud', card_label, rel, ', '.join(cands), size, h,
-                        'wordt als nieuw bestand behandeld')
+            return hash_file(lacie_root / c)
         except OSError as e:
-            logbook(lacie_root, 'fout bij controle', card_label, rel, '', size, '', str(e))
-        job['work_done'] = base + 2 * size
-        job['done_files'] += 1
+            return e
+
+    lacie_pool = concurrent.futures.ThreadPoolExecutor(1)
+    lacie = {c: lacie_pool.submit(lacie_hash, c)
+             for rel, size, _ in files for c in lidx.get(key(rel, size), [])}
+    try:
+        for rel, size, _ in files:
+            check_one(card_root, card_label, rel, size, lacie_root, lidx, lacie, mismatch, job, progress)
+    finally:
+        lacie_pool.shutdown(cancel_futures=True)
+
+
+def check_one(card_root, card_label, rel, size, lacie_root, lidx, lacie, mismatch, job, progress):
+    job['current'] = rel
+    base = job['work_done']
+    try:
+        h = hash_file(card_root / rel, progress)
+        cands = lidx.get(key(rel, size), [])
+        results = {c: lacie[c].result() for c in cands}
+        match = next((c for c, r in results.items() if r == h), None)
+        errors = [r for r in results.values() if isinstance(r, OSError)]
+        if match:
+            register(lacie_root, match, rel, size, h, card_label)
+            logbook(lacie_root, 'al aanwezig, gecontroleerd', card_label, rel, str(Path(match)), size, h)
+        elif errors:  # LaCie-bestand onleesbaar: niet als "andere inhoud" behandelen
+            raise errors[0]
+        else:
+            mismatch.add(rel)
+            logbook(lacie_root, 'zelfde naam, andere inhoud', card_label, rel, ', '.join(cands), size, h,
+                    'wordt als nieuw bestand behandeld')
+    except OSError as e:
+        logbook(lacie_root, 'fout bij controle', card_label, rel, '', size, '', str(e))
+    job['work_done'] = base + size
+    job['done_files'] += 1
 
 
 def nas_pass(lacie_root, nas_root, status, stop=lambda: False):
@@ -535,13 +561,14 @@ def nas_loop():
         NAS_KICK.clear()
 
 
-def start_job(kind, dest, todo, fn):
+def start_job(kind, dest, todo, fn, passes=2):
+    """passes: hoe vaak elke byte van de kaart meetelt in de voortgang (kopiëren + terugleest = 2)."""
     with JOB_LOCK:
         if JOB['running']:
             raise ValueError('Er loopt al een taak.')
         JOB.clear()
         JOB.update(running=True, kind=kind, dest=dest, total_files=len(todo), done_files=0,
-                   work_total=2 * sum(f[1] for f in todo), work_done=0, started=time.time(), current='', error='')
+                   work_total=passes * sum(f[1] for f in todo), work_done=0, started=time.time(), current='', error='')
 
     def run():
         try:
@@ -592,7 +619,7 @@ def start_adopt(body):
     if not todo:
         raise ValueError('Er zijn geen bestaande bestanden om te controleren.')
     start_job('adopt', 'bestaande bestanden', todo,
-              lambda: adopt_files(Path(drive), card['label'], todo, lacie, lidx, JOB, card['mismatch']))
+              lambda: adopt_files(Path(drive), card['label'], todo, lacie, lidx, JOB, card['mismatch']), passes=1)
 
 
 def card_summary(drive, card, reg, lidx):

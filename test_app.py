@@ -57,6 +57,14 @@ def main():
         s = states(card, lacie, lidx)
         assert s == {'C0001.MP4': 'new', 'DCIM/100MSDCF/DSC00001.JPG': 'lacie', 'DCIM/100MSDCF/DSC00002.JPG': 'new'}, s
         assert not list(lacie.rglob('DSC00001_2.JPG'))  # geen dubbel gemaakt
+        assert job['work_done'] == sum(f[1] for f in dups)  # voortgang telt alleen de kaart
+
+        # onleesbaar LaCie-bestand (verdwenen/defect) is een fout, geen "andere inhoud"
+        foto2 = [f for f in files if f[0] == 'DCIM/100MSDCF/DSC00002.JPG']
+        ghost = {app.key('DSC00002.JPG', foto2[0][1]): ['01_Klant/oude_map/weg/DSC00002.JPG']}
+        app.adopt_files(card_root, 'KAART1', foto2, lacie, ghost, {'work_done': 0, 'done_files': 0}, card['mismatch'])
+        assert 'DCIM/100MSDCF/DSC00002.JPG' not in card['mismatch']
+        assert app.LOG_PENDING == [] and app.read_logbook(lacie)[0][1] == 'fout bij controle'
 
         # selectie: alleen de clip naar klant A, foto 2 later naar klant B
         clip = [f for f in files if f[0] == 'C0001.MP4']
