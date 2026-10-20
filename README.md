@@ -20,6 +20,12 @@ Handmatig starten of het dashboard openen kan altijd met `start.cmd`, of via htt
 7. Zodra `\\NAS-A-PRIMARY\Marketing` bereikbaar is, zet Offload alles vanzelf door naar dezelfde plek onder `nas_root`.
 8. Groene melding **"Deze kaart mag geformatteerd worden"**? Dan staat elk foto- en videobestand van die kaart geverifieerd op de LaCie én op de NAS.
 
+## Veilig verwijderen
+
+- **Van de SD-kaart:** alleen bestanden die geverifieerd op de LaCie én de NAS staan (groen). Offload kijkt vlak voor het wissen nog na dat beide kopieën bestaan met de juiste grootte. Een SD-kaart heeft geen Prullenbak, dus wissen is daar definitief; de kopieën op LaCie en NAS zijn je reservekopie. Sony-camera's vragen na het wissen van clips soms om hun database te herstellen.
+- **Dubbels op de LaCie:** klik op **Zoek dubbels**. Offload hasht bestanden met dezelfde naam en grootte in verschillende mappen en toont welke mappen identieke bestanden delen. Kies per paar mappen **Verwijder uit …**: die kopieën gaan naar de Windows-Prullenbak, hun NAS-kopie (als Offload die zette) naar `#recycle` op de NAS. De identieke kopie in de andere map blijft en gaat, indien nodig, opnieuw naar de NAS.
+- Je krijgt altijd eerst een lijst te zien van wat er weg gaat, en elke verwijdering staat in het logboek.
+
 ## Logboek
 
 Elke actie (kaart ingestoken, gekopieerd, al aanwezig, andere inhoud, NAS gekopieerd, fout) komt als een regel in `E:\Overzetting controle\Offload-logboek.csv`. Dat bestand opent in Excel. In het dashboard kun je het logboek doorzoeken via het tabblad **Logboek**.

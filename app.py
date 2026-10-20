@@ -289,15 +289,20 @@ def key(rel, size):
 
 
 def registry(ms, lacie_root):
-    """{(naam, grootte): [op LaCie, ook op NAS, map]} van alles wat Offload al geverifieerd heeft."""
+    """{(naam, grootte): [op LaCie, ook op NAS, map, pad]} van alles wat Offload al geverifieerd heeft.
+
+    Het pad is bij voorkeur dat van een kopie die ook op de NAS staat (nodig om veilig van de kaart te wissen).
+    """
     # ponytail: herkenning op naam+grootte zoals het oude script; botsing vraagt exact dezelfde naam én bytes
     reg = {}
     for p, m in ms:
         for f in m['files']:
             if f['lacie_ok']:
-                v = reg.setdefault(key(f['src'], f['size']), [True, False, ''])
+                v = reg.setdefault(key(f['src'], f['size']), [True, False, '', ''])
+                path = (p.parent / f['rel']).relative_to(lacie_root)
+                if not v[3] or (f['nas_ok'] and not v[1]):
+                    v[2], v[3] = str(path.parent), path.as_posix()
                 v[1] |= f['nas_ok']
-                v[2] = v[2] or str((p.parent / f['rel']).parent.relative_to(lacie_root))
     return reg
 
 
@@ -334,8 +339,27 @@ def open_manifest(lacie_root, mdir, card_label):
     parts = mdir.relative_to(lacie_root).parts
     mpath = mdir / MANIFEST
     ensure_manifest(mpath, '\\'.join(parts[:-1]), parts[-1] if parts else '')
-    update_manifest(mpath, lambda m: m['cards'].append(card_label) if card_label not in m['cards'] else None)
+    if card_label:
+        update_manifest(mpath, lambda m: m['cards'].append(card_label) if card_label not in m['cards'] else None)
     return mpath
+
+
+def unregister(lacie_root, lacie_rel):
+    """Haal een bestand uit zijn manifest; geeft de verwijderde regel terug. Leeg manifest -> weg."""
+    mdir, rel = manifest_dir(lacie_root, lacie_rel)
+    mpath = mdir / MANIFEST
+    if not mpath.exists():
+        return None
+    removed = []
+
+    def drop(m):
+        removed.extend(f for f in m['files'] if f['rel'] == rel)
+        m['files'] = [f for f in m['files'] if f['rel'] != rel]
+    update_manifest(mpath, drop)
+    with MLOCK:
+        if not load_json(mpath)['files']:
+            mpath.unlink()
+    return removed[0] if removed else None
 
 
 def import_card(card_root, card_label, files, lacie_root, folder, job, lidx=None):
@@ -474,6 +498,116 @@ def nas_pass(lacie_root, nas_root, status, stop=lambda: False):
                         x.update(fields)
             update_manifest(mpath, setf)
     status['current'] = ''
+
+
+# ---------- veilig verwijderen ----------
+
+class SHFILEOPSTRUCTW(ctypes.Structure):
+    _fields_ = [('hwnd', ctypes.c_void_p), ('wFunc', ctypes.c_uint), ('pFrom', ctypes.c_void_p),
+                ('pTo', ctypes.c_void_p), ('fFlags', ctypes.c_ushort), ('fAnyOperationsAborted', ctypes.c_int),
+                ('hNameMappings', ctypes.c_void_p), ('lpszProgressTitle', ctypes.c_void_p)]
+
+
+def recycle(path):
+    """Naar de Windows-Prullenbak (FOF_ALLOWUNDO). Past het er niet in, dan vraagt Windows het eerst
+    (FOF_WANTNUKEWARNING) in plaats van stil definitief te wissen."""
+    s = str(path) + '\0\0'
+    buf = (ctypes.c_wchar * len(s))(*s)
+    op = SHFILEOPSTRUCTW(None, 3, ctypes.cast(buf, ctypes.c_void_p), None, 0x40 | 0x10 | 0x4 | 0x400 | 0x4000)
+    rc = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+    if rc or op.fAnyOperationsAborted or Path(path).exists():
+        raise OSError(f'Prullenbak weigerde ({rc:#x})')
+
+
+def wipe_card(card_root, card, files, lacie_root, nas_root, reg, job):
+    """Wis kaartbestanden die geverifieerd op LaCie én NAS staan. Een kaart heeft geen Prullenbak,
+    dus vlak ervoor nog eens nakijken dat beide kopieën bestaan met de juiste grootte."""
+    wiped = set()
+    for rel, size, _ in files:
+        job['current'] = rel
+        r = reg.get(key(rel, size))
+        try:
+            if not (r and r[1]):
+                raise OSError('staat niet geverifieerd op LaCie én NAS')
+            copies = (lacie_root / r[3], nas_root / r[3])
+            for c in copies:
+                if c.stat().st_size != size:
+                    raise OSError(f'kopie {c} heeft een andere grootte')
+            if (card_root / rel).stat().st_size != size:
+                raise OSError('kaartbestand is veranderd')
+            (card_root / rel).unlink()
+            wiped.add(rel)
+            logbook(lacie_root, 'gewist van kaart', card['label'], rel, str(copies[0]), size, '', f'NAS: {copies[1]}')
+        except OSError as e:
+            logbook(lacie_root, 'niet gewist van kaart', card['label'], rel, '', size, '', str(e))
+        job['work_done'] += size
+        job['done_files'] += 1
+    card['files'] = [f for f in card['files'] if f[0] not in wiped]
+    card['relset'] -= wiped
+    return wiped
+
+
+def folder_of(rel):
+    return str(Path(rel).parent)
+
+
+def scan_dups(lacie_root, lidx, job):
+    """Bestanden met dezelfde naam en grootte in verschillende mappen: hash vergelijken (alleen LaCie)."""
+    found = []
+    for paths in [p for p in lidx.values() if len({folder_of(x) for x in p}) > 1]:
+        by_hash = {}
+        for p in paths:
+            job['current'] = p
+            try:
+                st = (lacie_root / p).stat()
+                by_hash.setdefault(hash_file(lacie_root / p, lambda n: job.__setitem__('work_done', job['work_done'] + n)),
+                                   []).append([p, st.st_mtime])
+            except OSError as e:
+                logbook(lacie_root, 'fout bij dubbels zoeken', '', p, '', '', '', str(e))
+            job['done_files'] += 1
+        for h, items in by_hash.items():
+            if len({folder_of(p) for p, _ in items}) > 1:
+                found.append({'sha256': h, 'size': (lacie_root / items[0][0]).stat().st_size, 'files': items})
+    return found
+
+
+def dup_folders(g):
+    return tuple(sorted({folder_of(p) for p, _ in g['files']}))
+
+
+def dedupe(lacie_root, nas_root, groups, remove, job, lidx):
+    """Verwijder de kopieën in map `remove` naar de Prullenbak; elders blijft telkens een identieke kopie."""
+    for g in groups:
+        keep = [f for f in g['files'] if folder_of(f[0]) != remove]
+        for p, mtime in [f for f in g['files'] if folder_of(f[0]) == remove]:
+            job['current'] = p
+            try:
+                kp, kmtime = keep[0]
+                for path, mt in ((kp, kmtime), (p, mtime)):  # niets veranderd sinds het zoeken?
+                    st = (lacie_root / path).stat()
+                    if st.st_size != g['size'] or st.st_mtime != mt:
+                        raise OSError(f'{path} is veranderd sinds het zoeken naar dubbels')
+                recycle(lacie_root / p)
+                g['files'] = [f for f in g['files'] if f[0] != p]
+                k = key(p, g['size'])
+                if lidx is not None and p in lidx.get(k, []):
+                    lidx[k].remove(p)
+                logbook(lacie_root, 'dubbel naar Prullenbak', '', p, '', g['size'], g['sha256'], f'bewaard: {kp}')
+                entry = unregister(lacie_root, p)
+                if entry:  # de bewaarde kopie neemt de plaats in, zodat die ook naar de NAS gaat
+                    register(lacie_root, kp, entry['src'], g['size'], g['sha256'], '')
+                    nas_copy = nas_root / p
+                    if entry.get('nas_ok') and nas_copy.exists():
+                        nas_copy.unlink()  # de NAS (#recycle) bewaart het nog
+                        logbook(lacie_root, 'NAS-kopie naar #recycle', '', str(nas_copy), '', g['size'], g['sha256'],
+                                f'bewaard: {kp}')
+                    elif entry.get('nas_ok'):
+                        logbook(lacie_root, 'NAS-kopie niet verwijderd', '', str(nas_copy), '', g['size'], g['sha256'],
+                                'NAS niet bereikbaar of bestand al weg; ruim het later zelf op')
+            except OSError as e:
+                logbook(lacie_root, 'dubbel niet verwijderd', '', p, '', g['size'], g['sha256'], str(e))
+            job['work_done'] += g['size']
+            job['done_files'] += 1
 
 
 # ---------- schijven (Windows) ----------
@@ -634,6 +768,55 @@ def start_adopt(body):
               lambda: adopt_files(Path(drive), card['label'], todo, lacie, lidx, JOB, card['mismatch']), passes=1)
 
 
+def start_wipe(body):
+    lacie, lidx, drive, card, states = card_context(body)
+    wanted = set(body.get('files') or [])
+    todo = [tuple(f[:3]) for f in states if f[0] in wanted and f[3] == 'safe']
+    if not todo:
+        raise ValueError('Geen bestanden die geverifieerd op LaCie én NAS staan.')
+    reg = registry(read_manifests(lacie), lacie)
+    start_job('wipe', f'kaart {drive}', todo,
+              lambda: wipe_card(Path(drive), card, todo, lacie, Path(CFG['nas_root']), reg, JOB), passes=1)
+
+
+def start_dupscan(body):
+    lacie, lidx = STATE['lacie'], STATE['lacie_index']
+    if not lacie or lidx is None:
+        raise ValueError('De LaCie is niet aangesloten of wordt nog doorzocht.')
+    todo = [(p, size, 0) for (_, size), paths in lidx.items() if len({folder_of(x) for x in paths}) > 1 for p in paths]
+
+    def run():
+        STATE['dups'] = scan_dups(lacie, lidx, JOB)
+        STATE['dups_time'] = now()
+        logbook(lacie, 'dubbels gezocht', '', '', '', '', '', f"{len(STATE['dups'])} identieke bestanden in meerdere mappen")
+    start_job('dupscan', 'LaCie', todo, run, passes=1)
+
+
+def start_dedupe(body):
+    lacie = STATE['lacie']
+    folders, remove = tuple(body.get('folders') or ()), body.get('remove')
+    groups = [g for g in STATE.get('dups') or [] if dup_folders(g) == folders]
+    if not lacie or not groups or remove not in folders:
+        raise ValueError('Deze dubbels zijn niet (meer) gevonden. Zoek opnieuw naar dubbels.')
+    todo = [(p, g['size'], 0) for g in groups for p, _ in g['files'] if folder_of(p) == remove]
+
+    def run():
+        dedupe(lacie, Path(CFG['nas_root']), groups, remove, JOB, STATE['lacie_index'])
+        STATE['dups'] = [g for g in STATE['dups'] if len(dup_folders(g)) > 1]
+    start_job('dedupe', remove, todo, run, passes=1)
+
+
+def dup_summary():
+    pairs = {}
+    for g in STATE.get('dups') or []:
+        v = pairs.setdefault(dup_folders(g), {'folders': list(dup_folders(g)), 'count': 0, 'bytes': 0, 'names': []})
+        v['count'] += 1
+        v['bytes'] += g['size']
+        if len(v['names']) < 40:
+            v['names'].append(Path(g['files'][0][0]).name)
+    return sorted(pairs.values(), key=lambda v: -v['bytes'])
+
+
 def card_summary(drive, card, reg, lidx):
     st = file_states(card, reg, lidx)
     return {'drive': drive, 'label': card['label'], 'serial': card['serial'], 'files': st,
@@ -665,6 +848,7 @@ def status():
         'cards': [card_summary(d, c, reg, STATE['lacie_index']) for d, c in sorted(STATE['cards'].items())],
         'job': JOB,
         'imports': sorted((import_summary(p, m, lr) for p, m in ms), key=lambda x: x['created'], reverse=True),
+        'dups': dup_summary(), 'dups_time': STATE.get('dups_time'),
     }
 
 
@@ -712,7 +896,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         # application/json kan een andere website niet zonder CORS-preflight sturen, en die beantwoorden we niet
-        actions = {'/api/import': start_import, '/api/adopt': start_adopt}
+        actions = {'/api/import': start_import, '/api/adopt': start_adopt, '/api/wipe': start_wipe,
+                   '/api/dupscan': start_dupscan, '/api/dedupe': start_dedupe}
         if not self.local() or self.path not in actions or self.headers.get('Content-Type') != 'application/json':
             return self.send(400, {'error': 'ongeldig verzoek'})
         try:

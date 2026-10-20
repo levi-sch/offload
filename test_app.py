@@ -148,6 +148,56 @@ def main():
         app.flush_logbook(lacie)
         assert not app.LOG_PENDING and app.read_logbook(lacie)[0][1] == 'tijdens vergrendeling'
 
+        # Prullenbak vervangen door een testmap, zodat de test niets in je echte Prullenbak zet
+        bin_ = t / 'prullenbak'
+        bin_.mkdir()
+        app.recycle = lambda p: Path(p).rename(bin_ / Path(p).name)
+
+        # dubbels: X staat identiek in A en B (A is geregistreerd en op de NAS); Y heeft dezelfde naam en
+        # grootte maar andere inhoud en is dus geen dubbel
+        for d in ('A', 'B', 'C'):
+            (lacie / '03_Dub' / d).mkdir(parents=True)
+        (lacie / '03_Dub/A/X.JPG').write_bytes(b'zelfde')
+        (lacie / '03_Dub/B/X.JPG').write_bytes(b'zelfde')
+        (lacie / '03_Dub/A/Y.JPG').write_bytes(b'inhoud1')
+        (lacie / '03_Dub/C/Y.JPG').write_bytes(b'inhoud2')
+        app.register(lacie, '03_Dub/A/X.JPG', 'DCIM/X.JPG', 6, app.hash_file(lacie / '03_Dub/A/X.JPG'), 'KAART1')
+        app.nas_pass(lacie, nas, {})
+        assert (nas / '03_Dub/A/X.JPG').exists()
+        lidx = app.build_lacie_index(lacie)
+        groups = app.scan_dups(lacie, lidx, {'work_done': 0, 'done_files': 0})
+        assert [app.dup_folders(g) for g in groups] == [(r'03_Dub\A', r'03_Dub\B')], groups
+        app.dedupe(lacie, nas, groups, r'03_Dub\A', {'work_done': 0, 'done_files': 0}, lidx)
+        assert (bin_ / 'X.JPG').exists() and not (lacie / '03_Dub/A/X.JPG').exists()
+        assert (lacie / '03_Dub/B/X.JPG').exists() and (lacie / '03_Dub/A/Y.JPG').exists()
+        assert not (nas / '03_Dub/A/X.JPG').exists()  # NAS-spiegel mee opgeruimd
+        assert lidx[app.key('X.JPG', 6)] == ['03_Dub/B/X.JPG']
+        assert not (lacie / '03_Dub/A' / app.MANIFEST).exists()  # leeg manifest weg
+        kept = app.load_json(lacie / '03_Dub/B' / app.MANIFEST)['files']
+        assert [(f['rel'], f['src'], f['nas_ok']) for f in kept] == [('X.JPG', 'DCIM/X.JPG', False)]  # gaat opnieuw naar NAS
+
+        # veranderd sinds het zoeken -> niet verwijderen
+        (lacie / '03_Dub/A/X.JPG').write_bytes(b'zelfde')
+        groups = app.scan_dups(lacie, app.build_lacie_index(lacie), {'work_done': 0, 'done_files': 0})
+        (lacie / '03_Dub/B/X.JPG').write_bytes(b'ZELFDE')
+        app.dedupe(lacie, nas, groups, r'03_Dub\A', {'work_done': 0, 'done_files': 0}, None)
+        assert (lacie / '03_Dub/A/X.JPG').exists() and app.read_logbook(lacie)[0][1] == 'dubbel niet verwijderd'
+
+        # kaart wissen: alleen wat op LaCie én NAS staat; ontbreekt de NAS-kopie, dan blijft het op de kaart
+        files = app.media_files(card_root)
+        card = {'label': 'KAART1', 'files': files, 'relset': {f[0] for f in files}, 'mismatch': set()}
+        app.nas_pass(lacie, nas, {})
+        reg = app.registry(app.read_manifests(lacie), lacie)
+        safe = [f for f in files if reg.get(app.key(f[0], f[1]), [0, 0])[1]]
+        assert len(safe) >= 3, safe
+        (nas / '01_Klant/26-10-19_Shoot/C0001.MP4').unlink()
+        job = {'work_done': 0, 'done_files': 0}
+        wiped = app.wipe_card(card_root, card, safe, lacie, nas, reg, job)
+        assert 'C0001.MP4' not in wiped and (card_root / 'C0001.MP4').exists()
+        assert wiped and all(not (card_root / r).exists() for r in wiped)
+        assert all((lacie / reg[app.key(r, s)][3]).exists() for r, s, _ in safe)  # kopieën onaangeroerd
+        assert {f[0] for f in card['files']} == {f[0] for f in files} - wiped
+
     print('OK')
 
 

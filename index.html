@@ -55,6 +55,21 @@
   button { font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; }
   button:disabled { opacity: .5; cursor: default; }
   button.link { background: none; color: var(--accent); padding: 4px 6px; font-weight: 500; }
+  button.danger { background: var(--bad); }
+  button.secondary { background: var(--track); color: var(--text); }
+
+  dialog { max-width: min(640px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 12px;
+           background: var(--panel); color: var(--text); padding: 20px; }
+  dialog::backdrop { background: rgba(0,0,0,.55); }
+  dialog h3 { margin: 0 0 10px; font-size: 18px; }
+  #cf-body p { margin: 6px 0; }
+  #cf-list { max-height: 260px; overflow: auto; margin: 10px 0; padding: 8px 8px 8px 26px; background: var(--bg);
+             border-radius: 8px; font-size: 13px; word-break: break-all; }
+  .cf-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .duprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+            padding: 12px 0; border-top: 1px solid var(--line); }
+  .duprow:first-of-type { border-top: 0; }
+  .dupbtns { display: flex; flex-wrap: wrap; gap: 8px; }
   .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; white-space: nowrap; background: var(--track); color: var(--muted); }
   .badge.ok { background: var(--ok-bg); color: var(--ok); }
   .badge.wait { background: var(--wait-bg); color: var(--wait); }
@@ -177,6 +192,8 @@
     <div id="job"></div>
     <h2>Imports op de LaCie</h2>
     <div id="imports" class="panel list"></div>
+    <h2>Dubbels op de LaCie</h2>
+    <div id="dups" class="panel"></div>
   </section>
 
   <section id="log" hidden>
@@ -189,6 +206,18 @@
 
   <div id="offline" class="banner bad" hidden>Offload-app reageert niet. Start <b>start.cmd</b> opnieuw.</div>
 </main>
+
+<dialog id="confirm">
+  <form method="dialog">
+    <h3 id="cf-title"></h3>
+    <div id="cf-body"></div>
+    <ul id="cf-list"></ul>
+    <div class="cf-actions">
+      <button value="cancel" class="secondary" autofocus>Annuleren</button>
+      <button value="ok" class="danger" id="cf-ok"></button>
+    </div>
+  </form>
+</dialog>
 
 <datalist id="clients"></datalist>
 <datalist id="subdirs"><option value="Camera"><option value="Drone"><option value="Foto's"><option value="Video's"></datalist>
@@ -203,6 +232,65 @@ const isoDate = t => { const d = new Date(t * 1000); return new Date(d - d.getTi
 const last = {};
 const changed = (k, v) => { const j = JSON.stringify(v); if (last[k] === j) return false; last[k] = j; return true; };
 const chip = (cls, text) => `<span class="chip ${cls}"><span class="dot"></span>${text}</span>`;
+// Bevestigen met een lijst van wat er gebeurt; geeft true bij "ok".
+function confirmList(title, bodyHtml, items, okText) {
+  const d = $('#confirm');
+  $('#cf-title').textContent = title;
+  $('#cf-body').innerHTML = bodyHtml;
+  $('#cf-list').innerHTML = items.map(i => `<li>${esc(i)}</li>`).join('');
+  $('#cf-list').hidden = !items.length;
+  $('#cf-ok').textContent = okText;
+  d.returnValue = '';
+  d.showModal();
+  return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'ok'), { once: true }));
+}
+
+async function wipeCard(b) {
+  const safe = b.files.map((f, i) => [f, b.states[i]]).filter(([, st]) => st === 'safe').map(([f]) => f);
+  const byFolder = {};
+  for (const f of safe) (byFolder[f[4]] ||= []).push(f);
+  const sony = safe.some(f => f[0].startsWith('PRIVATE/M4ROOT/'));
+  const ok = await confirmList(
+    `${safe.length} bestanden van de kaart wissen?`,
+    `<p><b>${gb(safe.reduce((a, f) => a + f[1], 0))}</b>. Op een SD-kaart is er geen Prullenbak: dit is definitief.
+       De kopieën op de LaCie en de NAS blijven staan; Offload kijkt vlak voor het wissen nog na dat ze bestaan.</p>
+     ${sony ? '<p class="muted">Sony-camera\'s houden een eigen database bij. Na het wissen van clips vraagt de camera misschien om die te herstellen; formatteren in de camera kan ook.</p>' : ''}
+     <p>Kopieën staan in:</p>`,
+    Object.entries(byFolder).map(([folder, fs]) => `${folder} · ${fs.length} bestanden · ${gb(fs.reduce((a, f) => a + f[1], 0))}`),
+    `Wis ${safe.length} bestanden van de kaart`);
+  if (ok) post('/api/wipe', { drive: b.drive, files: safe.map(f => f[0]) }).then(tick);
+}
+
+function renderDups(s) {
+  if (!s.lacie) return $('#dups').innerHTML = '<div class="muted">Sluit de LaCie aan om naar dubbels te zoeken.</div>';
+  const busy = s.job.running;
+  $('#dups').innerHTML = `<div class="duprow"><span class="muted">${s.dups_time
+      ? `Laatst gezocht: ${esc(s.dups_time.replace('T', ' '))} · ${s.dups.reduce((a, d) => a + d.count, 0)} identieke bestanden in meerdere mappen`
+      : 'Zoekt bestanden die identiek (zelfde hash) in meer dan één map op de LaCie staan.'}</span>
+    <button type="button" data-dupscan ${busy ? 'disabled' : ''}>Zoek dubbels</button></div>` +
+    s.dups.map((d, k) => `<div class="duprow">
+      <span><b>${d.count} bestanden · ${gb(d.bytes)}</b> staan identiek in<br>${d.folders.map(esc).join('<br>')}</span>
+      <span class="dupbtns">${d.folders.map((f, j) =>
+        `<button type="button" class="secondary" data-dedupe="${k}" data-remove="${j}" ${busy ? 'disabled' : ''}>Verwijder uit ${esc(f.split('\\').pop())}</button>`).join('')}</span>
+    </div>`).join('');
+  window.dups = s.dups;
+}
+
+$('#dups').addEventListener('click', async e => {
+  if (e.target.closest('[data-dupscan]')) return post('/api/dupscan', {}).then(tick);
+  const btn = e.target.closest('[data-dedupe]');
+  if (!btn) return;
+  const d = window.dups[+btn.dataset.dedupe], remove = d.folders[+btn.dataset.remove];
+  const keep = d.folders.filter(f => f !== remove);
+  const ok = await confirmList(
+    `${d.count} dubbels verwijderen uit ${remove}?`,
+    `<p><b>${gb(d.bytes)}</b> gaat naar de Windows-Prullenbak; zette Offload ze ook op de NAS, dan gaat die kopie naar #recycle op de NAS.</p>
+     <p>Bewaard blijft de identieke kopie in <b>${keep.map(esc).join('</b> en <b>')}</b>. Offload kijkt vlak ervoor na dat die niet veranderd is.</p>`,
+    d.names.concat(d.count > d.names.length ? [`… en nog ${d.count - d.names.length}`] : []),
+    `Naar de Prullenbak`);
+  if (ok) post('/api/dedupe', { folders: d.folders, remove }).then(tick);
+});
+
 const post = async (url, body) => {
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!r.ok) alert((await r.json()).error);
@@ -321,6 +409,7 @@ function onCardClick(b, e) {
     post('/api/adopt', { drive: b.drive }).then(tick);
     return;
   }
+  if (e.target.closest('[data-wipe]')) return wipeCard(b);
   const mini = e.target.closest('.mini');
   if (mini) {  // bestand uit de suggestie halen of er terug in zetten
     const i = +mini.dataset.i;
@@ -434,6 +523,11 @@ function updateCard(b, c, s) {
     if (k.new) banner += `<div class="banner info">${k.new} nieuwe bestanden. Vink per sessie aan wat bij één klant hoort, of klik op bestanden (shift+klik voor een reeks).</div>`;
     else if (!k.dup) banner += `<div class="banner wait">Alles staat op de LaCie. Wacht op de NAS (${k.safe || 0}/${total}). Nog niet formatteren.</div>`;
   }
+  if (k.safe) {
+    const bytes = c.files.filter(f => f[3] === 'safe').reduce((a, f) => a + f[1], 0);
+    banner += `<div class="banner info"><span>${k.safe} bestanden (${gb(bytes)}) staan geverifieerd op de LaCie én de NAS en mogen van de kaart.</span>
+      <button type="button" class="danger" data-wipe ${b.busy ? 'disabled' : ''}>Wis ${k.safe} bestanden van de kaart</button></div>`;
+  }
   b.el.querySelector('[data-banner]').innerHTML = banner;
   b.suggest = suggestions(b, c);
   renderSuggest(b);
@@ -505,11 +599,18 @@ function renderCards(s) {
 // ---------- taak, imports ----------
 function renderJob(j) {
   if (!j.running && !j.error && !j.finished) return $('#job').innerHTML = '';
-  const what = j.kind === 'adopt' ? 'Bestaande bestanden controleren (hash van kaart en LaCie)' : `Kopiëren en verifiëren naar ${esc(j.dest)}`;
+  const what = {
+    adopt: 'Bestaande bestanden controleren (hash van kaart en LaCie)',
+    wipe: `Veilige bestanden wissen van de ${esc(j.dest)}`,
+    dupscan: 'Dubbels zoeken op de LaCie (hash)',
+    dedupe: `Dubbels uit ${esc(j.dest)} naar de Prullenbak`,
+  }[j.kind] || `Kopiëren en verifiëren naar ${esc(j.dest)}`;
+  const done = { adopt: 'gecontroleerd', wipe: 'verwerkt (wat niet veilig was, bleef staan)', dupscan: 'doorzocht',
+    dedupe: 'verwerkt' }[j.kind] || 'naar ' + esc(j.dest);
   if (!j.running) {
     $('#job').innerHTML = j.error
       ? `<div class="banner bad">Taak gestopt: ${esc(j.error)}</div>`
-      : `<div class="banner ok">Klaar: ${j.done_files} bestanden ${j.kind === 'adopt' ? 'gecontroleerd' : 'naar ' + esc(j.dest)}. Details in het logboek.</div>`;
+      : `<div class="banner ok">Klaar: ${j.done_files} bestanden ${done}. Details in het logboek.</div>`;
     return;
   }
   const pct = j.work_total ? j.work_done / j.work_total : 0;
@@ -585,6 +686,7 @@ async function tick() {
     renderCards(s);
     renderJob(s.job);
     if (changed('imports', [s.imports, s.nas.reachable, !!s.lacie])) renderImports(s);
+    if (changed('dups', [s.dups, s.dups_time, s.job.running, !!s.lacie])) renderDups(s);
   } catch (e) { console.error(e); }
   timer = setTimeout(tick, 1000);
 }
