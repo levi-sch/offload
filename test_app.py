@@ -107,6 +107,15 @@ def main():
         assert app.manifest_dir(lacie, '01_VMRE/25-xx-xx_old/Gebouw/B.JPG') == (lacie / '01_VMRE/25-xx-xx_old', 'Gebouw/B.JPG')
         assert app.manifest_dir(lacie, '01_Klant/oude_map/C.JPG') == (lacie / '01_Klant/oude_map', 'C.JPG')
 
+        # map gekozen in het Windows-venster: alleen binnen 00_Bronbestanden
+        assert app.lacie_relative(lacie, (lacie / '01_Klant/oude_map').as_posix()) == r'01_Klant\oude_map'
+        for outside in (lacie, lacie.parent, t / 'nas', lacie / '..' / 'stiekem'):
+            try:
+                app.lacie_relative(lacie, outside)
+                raise AssertionError(outside)
+            except ValueError:
+                pass
+
         # identiek bestand opnieuw: geen _2; ander bestand met dezelfde naam: _2, origineel blijft
         assert app.free_dest(shoot / 'C0001.MP4', card_root / 'C0001.MP4')[1] is not None
         (t / 'other.MP4').write_bytes(b'anders')

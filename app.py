@@ -806,6 +806,43 @@ def start_dedupe(body):
     start_job('dedupe', remove, todo, run, passes=1)
 
 
+PICK_LOCK = threading.Lock()
+
+
+def lacie_relative(lacie_root, chosen):
+    """Gekozen map -> pad binnen 00_Bronbestanden; een map erbuiten wordt geweigerd."""
+    p, root = Path(chosen).resolve(), lacie_root.resolve()
+    if p == root or not p.is_relative_to(root):
+        raise ValueError(f'Kies een map binnen {lacie_root}, niet {p}.')
+    return str(p.relative_to(root))
+
+
+def pick_folder(body):
+    """Het gewone Windows-venster 'Map kiezen' (zoals bij Opslaan als), met de knop Nieuwe map."""
+    lacie = STATE['lacie']
+    if not lacie:
+        raise ValueError('LaCie niet gevonden.')
+    start = lacie
+    try:
+        if body.get('start') and (lacie / clean_path(body['start'], 5)).is_dir():
+            start = lacie / clean_path(body['start'], 5)
+    except ValueError:
+        pass
+    if not PICK_LOCK.acquire(blocking=False):
+        raise ValueError('Er staat al een venster "Map kiezen" open.')
+    try:
+        import tkinter.filedialog
+        root = tkinter.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)  # boven de browser, ook al draait Offload op de achtergrond
+        chosen = tkinter.filedialog.askdirectory(parent=root, initialdir=str(start),
+                                                 title='Kies de map voor deze bestanden (op de LaCie)')
+        root.destroy()
+    finally:
+        PICK_LOCK.release()
+    return {'folder': lacie_relative(lacie, chosen) if chosen else ''}
+
+
 def dup_summary():
     pairs = {}
     for g in STATE.get('dups') or []:
@@ -897,12 +934,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         # application/json kan een andere website niet zonder CORS-preflight sturen, en die beantwoorden we niet
         actions = {'/api/import': start_import, '/api/adopt': start_adopt, '/api/wipe': start_wipe,
-                   '/api/dupscan': start_dupscan, '/api/dedupe': start_dedupe}
+                   '/api/dupscan': start_dupscan, '/api/dedupe': start_dedupe, '/api/pickfolder': pick_folder}
         if not self.local() or self.path not in actions or self.headers.get('Content-Type') != 'application/json':
             return self.send(400, {'error': 'ongeldig verzoek'})
         try:
-            actions[self.path](json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0)))))
-            self.send(200, {'ok': True})
+            result = actions[self.path](json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0)))))
+            self.send(200, result or {'ok': True})
         except ValueError as e:
             self.send(400, {'error': str(e)})
 

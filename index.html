@@ -145,7 +145,8 @@
 
   .assign { position: sticky; bottom: 0; z-index: 2; margin: 14px -18px -18px; padding: 14px 18px; background: var(--panel);
             border-top: 2px solid var(--accent); border-radius: 0 0 12px 12px; box-shadow: 0 -6px 16px rgba(0,0,0,.08);
-            display: grid; grid-template-columns: .9fr 1.4fr .9fr 1.2fr .9fr auto; gap: 10px; align-items: end; }
+            display: grid; grid-template-columns: .9fr 1.4fr .9fr 1.2fr .9fr auto auto; gap: 10px; align-items: end; }
+  .assign.picked label { opacity: .4; }
   .selinfo { font-weight: 650; align-self: center; color: var(--accent); }
   .dest { grid-column: 1 / -1; font-size: 13px; word-break: break-all; }
   @media (max-width: 760px) { .assign { grid-template-columns: 1fr; } .grid, .strip { margin-left: 0; } }
@@ -371,6 +372,7 @@ function buildCard(c, s, key) {
       <label>Datum shoot<input name="date" type="date" required></label>
       <label>Shootnaam<input name="shoot" required placeholder="bv. teambuilding"></label>
       <label>Submap (optioneel)<input name="subdir" list="subdirs" placeholder="bv. Drone"></label>
+      <button type="button" class="secondary" data-pick title="Kies of maak een map op de LaCie, zoals bij Opslaan als">Kies map…</button>
       <button>Kopieer selectie</button>
       <div class="dest muted" data-dest></div>
     </form>`;
@@ -384,9 +386,10 @@ function buildCard(c, s, key) {
   b.form.addEventListener('submit', async e => {
     e.preventDefault();
     const f = b.form;
-    const ok = await post('/api/import', { drive: b.drive, files: [...b.sel].map(i => b.files[i][0]),
-      client: f.client.value, date: f.date.value, shoot: f.shoot.value, subdir: f.subdir.value });
-    if (ok) { b.sel.clear(); b.last = null; f.shoot.value = ''; delete f.date.dataset.touched; refreshSel(b); tick(); }
+    const files = [...b.sel].map(i => b.files[i][0]);
+    const ok = await post('/api/import', b.folder ? { drive: b.drive, files, folder: b.folder }
+      : { drive: b.drive, files, client: f.client.value, date: f.date.value, shoot: f.shoot.value, subdir: f.subdir.value });
+    if (ok) { b.sel.clear(); b.last = null; b.folder = ''; f.shoot.value = ''; delete f.date.dataset.touched; refreshSel(b); tick(); }
   });
   b.el.addEventListener('click', e => onCardClick(b, e));
   return b;
@@ -410,6 +413,8 @@ function onCardClick(b, e) {
     return;
   }
   if (e.target.closest('[data-wipe]')) return wipeCard(b);
+  if (e.target.closest('[data-pick]')) return pickFolder(b);
+  if (e.target.closest('[data-unpick]')) { b.folder = ''; return showDest(b); }
   const mini = e.target.closest('.mini');
   if (mini) {  // bestand uit de suggestie halen of er terug in zetten
     const i = +mini.dataset.i;
@@ -462,9 +467,37 @@ function refreshSel(b) {
 }
 
 function showDest(b) {  // toont vooraf waar de bestanden komen, in dezelfde vorm als de bestaande mappen
-  const f = b.form, parts = [lacieRoot, f.client.value.trim(), f.date.value && f.shoot.value.trim()
+  const f = b.form, dest = b.el.querySelector('[data-dest]');
+  // met een gekozen map tellen klant/datum/shootnaam niet mee
+  f.classList.toggle('picked', !!b.folder);
+  for (const name of ['client', 'date', 'shoot', 'subdir']) {
+    f[name].disabled = !!b.folder;
+    f[name].required = !b.folder && name !== 'subdir';
+  }
+  if (b.folder) {
+    dest.innerHTML = `→ <b>${esc(lacieRoot + '\\' + b.folder)}\\</b> (gekozen map; alle bestanden samen, zonder camera-mappen)
+      <button type="button" class="link" data-unpick>Toch een nieuwe shootmap maken</button>`;
+    return;
+  }
+  const parts = [lacieRoot, f.client.value.trim(), f.date.value && f.shoot.value.trim()
     ? f.date.value.slice(2) + '_' + f.shoot.value.trim() : '…', f.subdir.value.trim()].filter(Boolean);
-  b.el.querySelector('[data-dest]').textContent = '→ ' + parts.join('\\') + '\\ (alle bestanden samen, zonder camera-mappen)';
+  dest.textContent = '→ ' + parts.join('\\') + '\\ (alle bestanden samen, zonder camera-mappen)';
+}
+
+async function pickFolder(b) {  // opent het Windows-venster "Map kiezen" via Offload
+  const btn = b.el.querySelector('[data-pick]');
+  btn.disabled = true;
+  btn.textContent = 'Venster is open…';
+  try {
+    const r = await fetch('/api/pickfolder', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start: b.folder || b.form.client.value }) });
+    const j = await r.json();
+    if (!r.ok) alert(j.error);
+    else if (j.folder) { b.folder = j.folder; showDest(b); }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Kies map…';
+  }
 }
 
 function updateCard(b, c, s) {
