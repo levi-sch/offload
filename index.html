@@ -147,6 +147,9 @@
             border-top: 2px solid var(--accent); border-radius: 0 0 12px 12px; box-shadow: 0 -6px 16px rgba(0,0,0,.08);
             display: grid; grid-template-columns: .9fr 1.4fr .9fr 1.2fr .9fr auto auto; gap: 10px; align-items: end; }
   .assign.picked label { opacity: .4; }
+  .delrow { grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: -6px; }
+  button.danger-link { color: var(--bad); font-size: 13px; }
+  dialog .minis { max-height: 300px; overflow: auto; }
   .selinfo { font-weight: 650; align-self: center; color: var(--accent); }
   .dest { grid-column: 1 / -1; font-size: 13px; word-break: break-all; }
   @media (max-width: 760px) { .assign { grid-template-columns: 1fr; } .grid, .strip { margin-left: 0; } }
@@ -234,16 +237,29 @@ const last = {};
 const changed = (k, v) => { const j = JSON.stringify(v); if (last[k] === j) return false; last[k] = j; return true; };
 const chip = (cls, text) => `<span class="chip ${cls}"><span class="dot"></span>${text}</span>`;
 // Bevestigen met een lijst van wat er gebeurt; geeft true bij "ok".
+// Eén venster tegelijk en één antwoord per venster: een klik telt meteen en precies één keer;
+// Escape of sluiten telt als Annuleren.
+let confirmAnswer = null;
+const settleConfirm = v => { const r = confirmAnswer; confirmAnswer = null; if (r) r(v); };
+$('#confirm form').addEventListener('submit', e => {
+  e.preventDefault();
+  $('#confirm').close();
+  settleConfirm(e.submitter?.value === 'ok');
+});
+$('#confirm').addEventListener('close', () => { if (!$('#confirm').open) settleConfirm(false); });
+
 function confirmList(title, bodyHtml, items, okText) {
   const d = $('#confirm');
+  // staat er al een venster open, dan niets stapelen: anders zou één klik op OK twee acties bevestigen
+  if (d.open || confirmAnswer) return Promise.resolve(false);
   $('#cf-title').textContent = title;
   $('#cf-body').innerHTML = bodyHtml;
   $('#cf-list').innerHTML = items.map(i => `<li>${esc(i)}</li>`).join('');
   $('#cf-list').hidden = !items.length;
   $('#cf-ok').textContent = okText;
-  d.returnValue = '';
   d.showModal();
-  return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'ok'), { once: true }));
+  d.querySelector('button[value=cancel]').focus();
+  return new Promise(res => confirmAnswer = res);
 }
 
 async function wipeCard(b) {
@@ -375,6 +391,7 @@ function buildCard(c, s, key) {
       <button type="button" class="secondary" data-pick title="Kies of maak een map op de LaCie, zoals bij Opslaan als">Kies map…</button>
       <button>Kopieer selectie</button>
       <div class="dest muted" data-dest></div>
+      <div class="delrow"><button type="button" class="link danger-link" data-delsel>Verwijder selectie van de kaart…</button></div>
     </form>`;
 
   b.el = document.createElement('div');
@@ -414,6 +431,7 @@ function onCardClick(b, e) {
   }
   if (e.target.closest('[data-wipe]')) return wipeCard(b);
   if (e.target.closest('[data-pick]')) return pickFolder(b);
+  if (e.target.closest('[data-delsel]')) return deleteSelection(b);
   if (e.target.closest('[data-unpick]')) { b.folder = ''; return showDest(b); }
   const mini = e.target.closest('.mini');
   if (mini) {  // bestand uit de suggestie halen of er terug in zetten
@@ -482,6 +500,30 @@ function showDest(b) {  // toont vooraf waar de bestanden komen, in dezelfde vor
   const parts = [lacieRoot, f.client.value.trim(), f.date.value && f.shoot.value.trim()
     ? f.date.value.slice(2) + '_' + f.shoot.value.trim() : '…', f.subdir.value.trim()].filter(Boolean);
   dest.textContent = '→ ' + parts.join('\\') + '\\ (alle bestanden samen, zonder camera-mappen)';
+}
+
+// Nieuwe bestanden (nog nergens anders) definitief van de kaart: eerst een lijst met miniaturen, dan nog
+// eens "Ben je zeker?". Annuleren is telkens de standaardknop, zodat Enter niets wist.
+async function deleteSelection(b) {
+  const sel = [...b.sel].sort((x, y) => b.pos[x] - b.pos[y]);
+  if (!sel.length) return;
+  const bytes = sel.reduce((a, i) => a + b.files[i][1], 0);
+  const minis = `<div class="minis">${sel.slice(0, 60).map(i => {
+    const [rel, , t] = b.files[i], name = rel.split('/').pop();
+    return `<div class="mini"><div class="thumb">${esc(name.split('.').pop())}${img(b.drive, rel)}</div>
+      <span class="fname">${esc(name)}</span><span class="muted">${hm(t)}</span></div>`;
+  }).join('')}</div>${sel.length > 60 ? `<p class="muted">… en nog ${sel.length - 60} bestanden</p>` : ''}`;
+  const first = await confirmList(`${sel.length} bestanden van de kaart verwijderen?`,
+    `<p><b>${gb(bytes)}</b>. Deze bestanden staan nog <b>nergens anders</b>: niet op de LaCie en niet op de NAS.
+     Op een SD-kaart is er geen Prullenbak.</p>${minis}`, [], `Verwijder ${sel.length} bestanden`);
+  if (!first) return;
+  const second = await confirmList('Ben je zeker?',
+    `<p>${sel.length} bestanden (${gb(bytes)}) worden <b>definitief</b> van de kaart gewist. Dit kan niet ongedaan gemaakt worden.</p>`,
+    [], 'Ja, definitief wissen');
+  if (!second) return;
+  if (await post('/api/delete', { drive: b.drive, files: sel.map(i => b.files[i][0]), confirm: 'definitief' })) {
+    b.sel.clear(); b.last = null; refreshSel(b); tick();
+  }
 }
 
 async function pickFolder(b) {  // opent het Windows-venster "Map kiezen" via Offload
@@ -635,10 +677,11 @@ function renderJob(j) {
   const what = {
     adopt: 'Bestaande bestanden controleren (hash van kaart en LaCie)',
     wipe: `Veilige bestanden wissen van de ${esc(j.dest)}`,
+    delete: `Gekozen bestanden definitief wissen van de ${esc(j.dest)}`,
     dupscan: 'Dubbels zoeken op de LaCie (hash)',
     dedupe: `Dubbels uit ${esc(j.dest)} naar de Prullenbak`,
   }[j.kind] || `Kopiëren en verifiëren naar ${esc(j.dest)}`;
-  const done = { adopt: 'gecontroleerd', wipe: 'verwerkt (wat niet veilig was, bleef staan)', dupscan: 'doorzocht',
+  const done = { adopt: 'gecontroleerd', wipe: 'verwerkt (wat niet veilig was, bleef staan)', delete: 'verwerkt', dupscan: 'doorzocht',
     dedupe: 'verwerkt' }[j.kind] || 'naar ' + esc(j.dest);
   if (!j.running) {
     $('#job').innerHTML = j.error

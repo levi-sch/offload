@@ -547,6 +547,29 @@ def wipe_card(card_root, card, files, lacie_root, nas_root, reg, job):
     return wiped
 
 
+def delete_from_card(card_root, card, files, lacie_root, job):
+    """Nieuwe bestanden (nog nergens anders) definitief van de kaart wissen, na dubbele bevestiging in het
+    dashboard. Een kaart heeft geen Prullenbak: dit is niet terug te halen."""
+    gone = set()
+    for rel, size, mtime in files:
+        job['current'] = rel
+        try:
+            st = (card_root / rel).stat()
+            if st.st_size != size or st.st_mtime != mtime:
+                raise OSError('kaartbestand is veranderd sinds het bekijken')
+            (card_root / rel).unlink()
+            gone.add(rel)
+            logbook(lacie_root, 'definitief gewist van kaart', card['label'], rel, '', size, '',
+                    'had geen kopie; op jouw vraag gewist')
+        except OSError as e:
+            logbook(lacie_root, 'niet gewist van kaart', card['label'], rel, '', size, '', str(e))
+        job['work_done'] += size
+        job['done_files'] += 1
+    card['files'] = [f for f in card['files'] if f[0] not in gone]
+    card['relset'] -= gone
+    return gone
+
+
 def folder_of(rel):
     return str(Path(rel).parent)
 
@@ -779,6 +802,18 @@ def start_wipe(body):
               lambda: wipe_card(Path(drive), card, todo, lacie, Path(CFG['nas_root']), reg, JOB), passes=1)
 
 
+def start_delete(body):
+    lacie, lidx, drive, card, states = card_context(body)
+    if body.get('confirm') != 'definitief':  # de tweede bevestiging uit het dashboard
+        raise ValueError('Verwijderen niet bevestigd.')
+    wanted = set(body.get('files') or [])
+    todo = [tuple(f[:3]) for f in states if f[0] in wanted and f[3] == 'new']
+    if not todo:
+        raise ValueError('Geen nieuwe bestanden geselecteerd.')
+    start_job('delete', f'kaart {drive}', todo,
+              lambda: delete_from_card(Path(drive), card, todo, lacie, JOB), passes=1)
+
+
 def start_dupscan(body):
     lacie, lidx = STATE['lacie'], STATE['lacie_index']
     if not lacie or lidx is None:
@@ -934,6 +969,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         # application/json kan een andere website niet zonder CORS-preflight sturen, en die beantwoorden we niet
         actions = {'/api/import': start_import, '/api/adopt': start_adopt, '/api/wipe': start_wipe,
+                   '/api/delete': start_delete,
                    '/api/dupscan': start_dupscan, '/api/dedupe': start_dedupe, '/api/pickfolder': pick_folder}
         if not self.local() or self.path not in actions or self.headers.get('Content-Type') != 'application/json':
             return self.send(400, {'error': 'ongeldig verzoek'})

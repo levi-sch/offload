@@ -207,6 +207,18 @@ def main():
         assert all((lacie / reg[app.key(r, s)][3]).exists() for r, s, _ in safe)  # kopieën onaangeroerd
         assert {f[0] for f in card['files']} == {f[0] for f in files} - wiped
 
+        # nieuw bestand op jouw vraag definitief wissen; een intussen veranderd bestand blijft staan
+        (card_root / 'DCIM/101MSDCF/MISLUKT.JPG').write_bytes(b'mislukte opname')
+        (card_root / 'DCIM/101MSDCF/ANDERS.JPG').write_bytes(b'blijft')
+        new = [f for f in app.media_files(card_root) if f[0] in ('DCIM/101MSDCF/MISLUKT.JPG', 'DCIM/101MSDCF/ANDERS.JPG')]
+        card = {'label': 'KAART1', 'files': list(new), 'relset': {f[0] for f in new}, 'mismatch': set()}
+        (card_root / 'DCIM/101MSDCF/ANDERS.JPG').write_bytes(b'blijft, maar veranderd')
+        gone = app.delete_from_card(card_root, card, new, lacie, {'work_done': 0, 'done_files': 0})
+        assert gone == {'DCIM/101MSDCF/MISLUKT.JPG'} and (card_root / 'DCIM/101MSDCF/ANDERS.JPG').exists()
+        assert [f[0] for f in card['files']] == ['DCIM/101MSDCF/ANDERS.JPG']
+        assert {(r[1], r[3]) for r in app.read_logbook(lacie)[:2]} == {
+            ('definitief gewist van kaart', 'DCIM/101MSDCF/MISLUKT.JPG'), ('niet gewist van kaart', 'DCIM/101MSDCF/ANDERS.JPG')}
+
     print('OK')
 
 

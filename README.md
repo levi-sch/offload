@@ -24,6 +24,7 @@ Handmatig starten of het dashboard openen kan altijd met `start.cmd`, of via htt
 
 - **Van de SD-kaart:** alleen bestanden die geverifieerd op de LaCie én de NAS staan (groen). Offload kijkt vlak voor het wissen nog na dat beide kopieën bestaan met de juiste grootte. Een SD-kaart heeft geen Prullenbak, dus wissen is daar definitief; de kopieën op LaCie en NAS zijn je reservekopie. Sony-camera's vragen na het wissen van clips soms om hun database te herstellen.
 - **Dubbels op de LaCie:** klik op **Zoek dubbels**. Offload hasht bestanden met dezelfde naam en grootte in verschillende mappen en toont welke mappen identieke bestanden delen. Kies per paar mappen **Verwijder uit …**: die kopieën gaan naar de Windows-Prullenbak, hun NAS-kopie (als Offload die zette) naar `#recycle` op de NAS. De identieke kopie in de andere map blijft en gaat, indien nodig, opnieuw naar de NAS.
+- **Nieuwe bestanden (te doen) van de kaart:** selecteer ze en klik op **Verwijder selectie van de kaart…** (onderaan, apart van Kopieer). Je ziet eerst de miniaturen van wat weg gaat en krijgt daarna nog een tweede vraag "Ben je zeker?". Deze bestanden staan nog nergens anders, dus dit is definitief. Annuleren is telkens de standaardknop.
 - Je krijgt altijd eerst een lijst te zien van wat er weg gaat, en elke verwijdering staat in het logboek.
 
 ## Logboek
