@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Offload</title>
+  <path fill="#2b6cf0" d="M18 2h24l14 14v36a10 10 0 0 1-10 10H18A10 10 0 0 1 8 52V12A10 10 0 0 1 18 2z"/>
+  <path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M20 35l8.5 8.5L44 27"/>
+</svg>
