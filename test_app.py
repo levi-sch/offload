@@ -219,6 +219,11 @@ def main():
         assert {(r[1], r[3]) for r in app.read_logbook(lacie)[:2]} == {
             ('definitief gewist van kaart', 'DCIM/101MSDCF/MISLUKT.JPG'), ('niet gewist van kaart', 'DCIM/101MSDCF/ANDERS.JPG')}
 
+    # lettertypen: alleen .woff2 uit fonts/, geen andere bestanden of paden
+    assert app.font_file('Bungee-Regular.woff2')
+    for bad in ('../app.py', '..\\app.woff2', 'sub/Bungee-Regular.woff2', 'OFL-Bungee.txt', 'bestaat-niet.woff2'):
+        assert app.font_file(bad) is None, bad
+
     print('OK')
 
 

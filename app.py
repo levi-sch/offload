@@ -196,6 +196,12 @@ def client_dirs(lacie_root):
     return out
 
 
+def font_file(name):
+    """Een lettertype voor het riool-thema: alleen een .woff2 rechtstreeks in fonts/, geen andere paden."""
+    p = HERE / 'fonts' / name
+    return p if re.fullmatch(r'[\w-]+\.woff2', name) and p.is_file() else None
+
+
 def thumbnail(card_root, rel):
     """Klein voorbeeldbeeld: de EXIF-miniatuur van een JPG, of de Sony-miniatuur van een clip."""
     p = card_root / rel
@@ -949,6 +955,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         q = dict(urllib.parse.parse_qsl(url.query))
         if url.path == '/':
             return self.send(200, (HERE / 'index.html').read_bytes(), 'text/html')
+        if url.path.startswith('/fonts/') and (f := font_file(url.path[7:])):
+            return self.send(200, f.read_bytes(), 'font/woff2', 'max-age=86400')
         if url.path == '/api/status':
             return self.send(200, status())
         if url.path == '/api/log':

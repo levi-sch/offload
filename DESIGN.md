@@ -101,6 +101,17 @@ Regels:
 - De kopieerbalk heeft bovenaan een blauwe rand van 2px en toont altijd vooraf de doelmap (`→ E:\00_Bronbestanden\…`), zodat je ziet waar alles terechtkomt.
 - Lege toestanden krijgen een korte zin in `.empty` of `.muted` die zegt wat je moet doen ("Steek een kaart in…").
 
+## Thema's
+
+Naast het standaardthema is er de **riooleditie**: New York bij nacht met het riool eronder, in de sfeer van de film uit 1990. De knop **Riooleditie** in de kop zet het aan of uit. De keuze wordt per browser onthouden (`localStorage`, sleutel `offload-thema`) en zet `data-theme="riool"` op `<html>`.
+
+- Alle CSS van het thema staat in één blok onderaan de `<style>`, onder `[data-theme="riool"]`. Het thema herdefinieert de kleurtokens en restylet bestaande componenten; de markup en de JS blijven dezelfde. Bouw je een nieuw component, geef het dan ook een regel in dat blok als het standaard er in het riool niet uitziet.
+- Het thema is altijd donker (`color-scheme: dark`) en volgt de systeeminstelling niet.
+- De statuskleuren blijven betekenen wat ze betekenen: groen = veilig, oranje = bezig of wacht, rood = fout. Alleen *te doen* en de knoppen zijn neoncyaan in plaats van blauw.
+- Herkenbare elementen: de kop als metrobord (zwarte band, witte lijn, neonlogo dat bij het laden even flikkert), de keten SD → LaCie → NAS als metrolijn, natte tunneltegels als achtergrond, de verdeelbalk als buis met flenzen, bouwlint boven oranje meldingen, sessietijden in camcorderletters (VT323), statuslabels als spuitbus-tags (Permanent Marker) en `REC ●` in de kopieerbalk.
+- Lettertypen staan lokaal in `fonts/` (Bungee, Barlow Condensed, Permanent Marker, VT323; licenties ernaast) en worden alleen geladen als het thema aanstaat. `app.py` serveert alleen `.woff2`-bestanden uit die map.
+- Geen figuren, namen of logo's uit de film: alleen de sfeer.
+
 ## Interactie
 
 - Het dashboard ververst elke seconde via `/api/status`. Bouw een kaart maar één keer op en werk daarna alleen de status bij, zodat selectie en invulvelden blijven staan.
