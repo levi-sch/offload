@@ -49,4 +49,5 @@ Kleuren, typografie, componenten en de andere ontwerpregels van het dashboard st
 - Per shootmap staat een `.offload.json` met de hash en de status van elk bestand.
 - Alleen foto, video en audio worden meegenomen (zie `extensions` in `config.json`). Sidecars zoals Sony `.XML` worden niet gekopieerd. De Sony-miniaturen (`THMBNL`) worden alleen gebruikt als voorbeeldbeeld in het dashboard.
 - Technische fouten van de achtergrondprocessen staan in `offload.log`.
+- Zin in iets anders? De knop **Riooleditie** in de kop zet het dashboard in een donker New York-thema. Klik opnieuw om terug te gaan.
 - Test: `python test_app.py`
