@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Offload</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%232b6cf0' d='M18 2h24l14 14v36a10 10 0 0 1-10 10H18A10 10 0 0 1 8 52V12A10 10 0 0 1 18 2z'/%3E%3Cpath fill='none' stroke='%23fff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' d='M20 35l8.5 8.5L44 27'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #f5f6f8; --panel: #fff; --text: #16191d; --muted: #667085; --line: #e3e6eb;
@@ -25,7 +26,8 @@
 
   /* ---------- kop ---------- */
   header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 18px 0; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
-  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  h1 { margin: 0; line-height: 0; }
+  h1 svg { height: 26px; width: auto; }
   nav { display: flex; gap: 4px; margin-right: auto; }
   nav button { background: none; color: var(--muted); padding: 6px 12px; }
   nav button:hover { color: var(--text); }
@@ -180,7 +182,13 @@
 <body>
 <main>
   <header>
-    <h1>Offload</h1>
+    <h1><svg role="img" aria-label="Offload" viewBox="0 0 324 78"><!-- logo uit brand/offload-logo.svg, kleuren via de tokens -->
+      <g transform="translate(-8 7)"><path fill="var(--accent)" d="M18 2h24l14 14v36a10 10 0 0 1-10 10H18A10 10 0 0 1 8 52V12A10 10 0 0 1 18 2z"/>
+        <path fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M20 35l8.5 8.5L44 27"/></g>
+      <g transform="translate(66 0)" fill="none" stroke="currentColor" stroke-width="7"><circle cx="20" cy="50" r="16.5"/>
+        <path d="M56 70V24a14 14 0 0 1 14-14h4M82 70V24a14 14 0 0 1 14-14h4M48 33.5h48M110 8v62M205.5 30v40M253.5 8v62"/>
+        <circle cx="141" cy="50" r="16.5"/><circle cx="189" cy="50" r="16.5"/><circle cx="237" cy="50" r="16.5"/></g>
+    </svg></h1>
     <nav>
       <button type="button" data-tab="overview" aria-current="page">Overzicht</button>
       <button type="button" data-tab="log">Logboek</button>

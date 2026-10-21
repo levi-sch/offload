@@ -60,7 +60,7 @@ Het belangrijkste onderscheid op een kaart: wat moet de gebruiker nog doen, en w
 ## Typografie
 
 - Lettertype: `system-ui, "Segoe UI", sans-serif`, basis `15px` met regelhoogte `1.45`.
-- `h1`: 20px, alleen voor "Offload" in de kop.
+- `h1`: het logo (inline SVG, 26px hoog) in de kop; zie [BRAND.md](BRAND.md).
 - Cijfers zijn overal `tabular-nums`, zodat aantallen en tijden niet verspringen bij het verversen.
 - `h2`: sectiekop, 13px, hoofdletters, `letter-spacing: .06em`, kleur `--muted`.
 - `h3.day`: dagkop boven de sessies, 15px, met hoofdletter ("Zondag 18 oktober 2026"; de maand blijft klein).

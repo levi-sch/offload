@@ -41,7 +41,7 @@ Staat het logboek open in Excel, dan bewaart Offload de nieuwe regels en schrijf
 | oranje | bezig, wacht op de NAS, of staat al op de LaCie maar is nog niet gecontroleerd |
 | rood | er is iets misgegaan; klik op "probleem(en) bekijken" of kijk in het logboek |
 
-Kleuren, typografie, componenten en de andere ontwerpregels van het dashboard staan in [DESIGN.md](DESIGN.md). Lees dat bestand voor je iets aan `index.html` verandert.
+Kleuren, typografie, componenten en de andere ontwerpregels van het dashboard staan in [DESIGN.md](DESIGN.md). Lees dat bestand voor je iets aan `index.html` verandert. Logo, merkkleur en tone of voice staan in [BRAND.md](BRAND.md), de logobestanden in `brand/`.
 
 ## Goed om te weten
 
